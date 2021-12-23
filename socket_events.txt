@@ -5,13 +5,11 @@ Server: [list games (id[])]
 Client: [create game, join game (id)]
 
 [At any point when in Game]
-Server: [game closed]
+Server: [game update (game)]
 Client: [leave game]
 
 [If in game waiting room]
-Server: [ready players changed (game), begin game (game)]
 Client: [ready, unready]
 
 [If in game playing]
-Server: [game update (game)]
 Client: [make bet (number)]
