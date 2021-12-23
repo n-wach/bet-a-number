@@ -23,6 +23,7 @@ export type Player = {
   remaining_cards: CardStack;
   won_rounds: RoundId[];
   total_score: number;
+  ready: boolean;
 }
 
 export type Game = {
