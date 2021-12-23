@@ -37,5 +37,4 @@ export type Game = {
   current_round: Round | null;
   previous_rounds: Round[] | null;
   remaining_cards: CardStack | null;
-  remaining_prize_points: number | null;
 }

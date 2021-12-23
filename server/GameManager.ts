@@ -63,16 +63,13 @@ function new_player_deck(): CardStack {
 }
 
 function new_game(): Game {
-  const point_deck = new_point_deck();
-  const total_points = point_deck.reduce((p, c) => p + c);
   return {
     id: new_game_id(),
     state: GameState.WAITING,
     players: [],
     current_round: null,
     previous_rounds: [],
-    remaining_cards: point_deck,
-    remaining_prize_points: total_points,
+    remaining_cards: new_point_deck(),
   }
 }
 
