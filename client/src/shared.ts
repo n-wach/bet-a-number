@@ -20,6 +20,7 @@ export type Round = {
 
 export type Player = {
   id: PlayerId;
+  gameId: GameId;
   color: Color;
   ready: boolean;
   remaining_cards: CardStack | null;

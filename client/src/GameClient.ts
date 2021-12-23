@@ -21,12 +21,14 @@ export default class GameClient {
     this.socket = io();
     this.socket.on("list games", (games) => {
       this.available_games = games;
+      console.log("available games", this.available_games);
       if(this.available_games_change_callback !== null) {
         this.available_games_change_callback(this.available_games);
       }
     });
     this.socket.on("game update", (game) => {
       this.game = game;
+      console.log("game update", this.game);
       if(this.game_update_callback !== null) {
         this.game_update_callback(this.game);
       }
