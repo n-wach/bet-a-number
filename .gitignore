@@ -4,4 +4,5 @@ client/node_modules/
 client/build
 .idea/
 !/client/scripts/*
+!/client/config/**
 
