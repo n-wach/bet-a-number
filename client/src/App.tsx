@@ -2,6 +2,8 @@ import React from 'react';
 import './App.css';
 import GameClient from "./GameClient";
 import {Game, GameId} from "./shared";
+import Lobby from "./Lobby";
+import PlayingArea from "./PlayingArea";
 
 type AppState = {
   game: Game | null,
@@ -21,19 +23,14 @@ export default class App extends React.Component<any, AppState> {
         game => this.setState({game: game})
     );
     console.log("Client:", this.client);
-
   }
   render() {
     return (
         <div className="App">
           {this.state.game ?
-              <p>In game</p> :
-              <p>
-                In lobby. Available games:
-                <ul>
-                  {this.state.available_games.map((gameId) => <li>{gameId}</li>)}
-                </ul>
-              </p>}
+              <PlayingArea client={this.client} game={this.state.game}/> :
+              <Lobby client={this.client} games={this.state.available_games}/>
+          }
         </div>
     );
   }
