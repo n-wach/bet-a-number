@@ -11,11 +11,12 @@ export default class GameClient {
   private game: Game | null;
   private game_update_callback: GameUpdateCallback | null;
 
-  constructor() {
+  constructor(available_games_change_callback: AvailableGamesChangeCallback | null = null,
+              game_update_callback: GameUpdateCallback | null = null) {
     this.available_games = [];
-    this.available_games_change_callback = null;
+    this.available_games_change_callback = available_games_change_callback;
     this.game = null;
-    this.game_update_callback = null;
+    this.game_update_callback = game_update_callback;
 
     this.socket = io();
     this.socket.on("list games", (games) => {

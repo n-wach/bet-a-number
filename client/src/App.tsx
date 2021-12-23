@@ -3,7 +3,7 @@ import './App.css';
 import GameClient from "./GameClient";
 
 const client = new GameClient();
-console.log(client);
+console.log("Client:", client);
 
 function App() {
   return (
