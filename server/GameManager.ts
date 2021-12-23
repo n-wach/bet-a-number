@@ -1,31 +1,90 @@
-import {Game, GameId, GameState, Player, PlayerId} from "../client/src/shared";
+import {CardStack, Color, Game, GameId, GameState, Player, PlayerId} from "../client/src/shared";
 import {Socket} from "socket.io";
+import {randomAdjective, randomNoun} from "./namer";
+
+function capitalize(s: string): string {
+  if(s.length == 0) {
+    return s;
+  }
+  return s[0].toUpperCase() + s.slice(1);
+}
 
 function new_game_id(): GameId {
-  return "Rawr";
+  return capitalize(randomAdjective()) + capitalize(randomNoun());
+}
+
+// from https://sashamaps.net/docs/resources/20-colors/
+const colors: Color[] = [
+  '#e6194B',
+  '#3cb44b',
+  '#ffe119',
+  '#4363d8',
+  '#f58231',
+  '#911eb4',
+  '#42d4f4',
+  '#f032e6',
+  '#bfef45',
+  '#fabed4',
+  '#469990',
+  '#dcbeff',
+  '#9A6324',
+  '#fffac8',
+  '#800000',
+  '#aaffc3',
+  '#808000',
+  '#ffd8b1',
+  '#000075',
+  '#a9a9a9',
+  '#ffffff',
+  '#000000',
+]
+
+function new_player_color(game: Game): Color {
+  return colors[game.players.length];
+}
+
+function new_point_deck(): CardStack {
+  const stack: CardStack = [];
+  for(let i = -5; i <= -1; i++) {
+    stack.push(i);
+  }
+  for(let i = 1; i <= 10; i++) {
+    stack.push(i);
+  }
+  return stack;
+}
+
+function new_player_deck(): CardStack {
+  const stack: CardStack = [];
+  for(let i = 1; i <= 15; i++) {
+    stack.push(i);
+  }
+  return stack;
 }
 
 function new_game(): Game {
+  const point_deck = new_point_deck();
+  const total_points = point_deck.reduce((p, c) => p + c);
   return {
     id: new_game_id(),
     state: GameState.WAITING,
     players: [],
     current_round: null,
-    previous_rounds: null,
-    remaining_cards: null,
-    remaining_prize_points: null,
+    previous_rounds: [],
+    remaining_cards: point_deck,
+    remaining_prize_points: total_points,
   }
 }
 
-function new_player(id: PlayerId, gameId: GameId): Player {
+function new_player(id: PlayerId, game: Game): Player {
   return {
     id: id,
-    gameId: gameId,
-    color: {r: 1, g: 0, b: 0},
+    gameId: game.id,
+    color: new_player_color(game),
     ready: false,
-    remaining_cards: null,
-    won_rounds: null,
-    total_score: null,
+    remaining_cards: new_player_deck(),
+    won_rounds: [],
+    total_score: 0,
   }
 }
 
@@ -82,7 +141,7 @@ export default class GameManager {
 
     socket.leave("lobby");
     socket.join(game.id);
-    const player = new_player(socket.id, game.id);
+    const player = new_player(socket.id, game);
     this.players.set(socket.id, player);
     game.players.push(player);
     this.send_game_update(socket, game);

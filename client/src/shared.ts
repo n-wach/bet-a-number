@@ -5,11 +5,7 @@ export type GameId = string;
 export type PlayerId = string;
 export type RoundId = number;
 
-export type Color = {
-  r: number;
-  g: number;
-  b: number;
-}
+export type Color = string;
 
 export type Round = {
   id: RoundId;

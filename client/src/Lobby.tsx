@@ -27,9 +27,11 @@ export default class Lobby extends React.Component<LobbyProps> {
               <p>There are no existing games.</p> :
               <p>Or join an existing game:</p>
           }
-          <div>
-            {this.props.games.map((gameId) => <button onClick={() => this.props.client.join_game(gameId)}>{gameId}</button>)}
-          </div>
+          {this.props.games.map((gameId) =>
+              <div>
+                <button onClick={() => this.props.client.join_game(gameId)}>{gameId}</button>
+              </div>
+          )}
         </div>
     );
   }
