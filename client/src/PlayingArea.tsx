@@ -20,6 +20,11 @@ export default class PlayingArea extends React.Component<PlayingAreaProps> {
           <code>
             {JSON.stringify(this.props.game, undefined, 1)}
           </code>
+          <div>
+            { this.props.client.get_this_player()?.remaining_cards.map((card) => {
+              return <button onClick={() => this.props.client.make_bet(card)}>{card}</button>
+            }) }
+          </div>
         </div>
     );
   }

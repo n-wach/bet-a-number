@@ -13,7 +13,7 @@ export default class WaitingArea extends React.Component<WaitingAreaProps> {
   }
   toggleReady() {
     const player = this.props.client.get_this_player();
-    if(player && player.ready) {
+    if(player?.ready) {
       this.props.client.unready();
     } else {
       this.props.client.ready();
@@ -32,8 +32,7 @@ export default class WaitingArea extends React.Component<WaitingAreaProps> {
   }
   getThisPlayerColor() {
     const player = this.props.client.get_this_player();
-    if(!player) return "#000000";
-    return player.color;
+    return player?.color || "#000000";
   }
   render() {
     return (
@@ -45,7 +44,7 @@ export default class WaitingArea extends React.Component<WaitingAreaProps> {
             <button onClick={() => this.toggleReady()}>{this.getReadyStatus()}</button>
           </p>
           { this.props.client.get_other_players().map((player) => {
-            return <p style={ {color: player.color}}>■ is {player.ready ? "Ready" : "Not Ready"}</p>
+            return <p style={ {color: player.color} }>■ is {player.ready ? "Ready" : "Not Ready"}</p>
           })}
         </div>
     );

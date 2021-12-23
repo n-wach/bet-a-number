@@ -1,6 +1,11 @@
-import {CardStack, Color, Game, GameId, GameState, Player, PlayerId} from "../client/src/shared";
+import {CardStack, Color, Game, GameId, GameState, Player, PlayerId, Round} from "../client/src/shared";
 import {Socket} from "socket.io";
 import {randomAdjective, randomNoun} from "./namer";
+
+function popRandomItem<T>(array: T[]): [T, T[]] {
+  const i = Math.floor(Math.random() * array.length);
+  return [array[i], array.splice(i, 1)];
+}
 
 function capitalize(s: string): string {
   if(s.length == 0) {
@@ -40,7 +45,7 @@ const colors: Color[] = [
 ]
 
 function new_player_color(game: Game): Color {
-  return colors[game.players.length];
+  return colors[game.players.size];
 }
 
 function new_point_deck(): CardStack {
@@ -66,7 +71,7 @@ function new_game(): Game {
   return {
     id: new_game_id(),
     state: GameState.WAITING,
-    players: [],
+    players: new Map<PlayerId, Player>(),
     current_round: null,
     previous_rounds: [],
     remaining_cards: new_point_deck(),
@@ -85,14 +90,66 @@ function new_player(id: PlayerId, game: Game): Player {
   }
 }
 
+function get_round_winner(round: Round): PlayerId | null {
+
+  return null;
+}
+
+function next_round(game: Game) {
+  if(game.remaining_cards.length == 0) {
+    // no more rounds. game over
+    game.state = GameState.ENDED;
+    return;
+  }
+
+  if(game.current_round === null) {
+    console.error("Unexpected null current_round");
+    return;
+  }
+
+  const winner = get_round_winner(game.current_round);
+  game.current_round.winner = winner;
+  if(winner) {
+    game.players.get(winner)
+  }
+  game.previous_rounds.push(game.current_round);
+
+  if(winner === null) {
+
+  }
+
+
+
+  if(game.current_round.winner === null) {
+      // add card
+      game.current_round = {
+        id: game.current_round.id + 1,
+        bets: new Map(),
+        prize_pool: [...game.current_round.prize_pool],
+        winner: null,
+      }
+  }
+
+
+}
+
 function start_playing(game: Game) {
   game.state = GameState.PLAYING;
-  // init everything.
+
+  const [point, remaining] = popRandomItem(game.remaining_cards);
+  game.remaining_cards = remaining;
+
+  game.current_round = {
+    id: 0,
+    bets: new Map(),
+    prize_pool: [point],
+    winner: null,
+  }
 }
 
 export default class GameManager {
   private games: Map<GameId, Game> = new Map<GameId, Game>();
-  private players: Map<string, Player> = new Map<string, Player>();
+  private players: Map<PlayerId, Player> = new Map<PlayerId, Player>();
   player_connect(socket: Socket) {
     socket.on("disconnect", this.player_disconnect.bind(this, socket));
     socket.on("create game", this.player_create_game.bind(this, socket));
@@ -139,8 +196,8 @@ export default class GameManager {
     socket.leave("lobby");
     socket.join(game.id);
     const player = new_player(socket.id, game);
-    this.players.set(socket.id, player);
-    game.players.push(player);
+    this.players.set(player.id, player);
+    game.players.set(player.id, player);
     this.send_game_update(socket, game);
   }
   player_leave_game(socket: Socket) {
@@ -156,8 +213,8 @@ export default class GameManager {
       return;
     }
 
-    game.players = game.players.filter((value) => value !== player);
-    if(game.players.length === 0) {
+    game.players.delete(player.id);
+    if(game.players.size === 0) {
       console.log("Deleting game with no players:", game.id);
       this.games.delete(game.id);
     }
@@ -187,7 +244,14 @@ export default class GameManager {
     }
 
     player.ready = true;
-    if(game.players.every((player) => player.ready)) {
+
+    let all_ready = true;
+    game.players.forEach((player) => {
+      if(!player.ready) {
+        all_ready = false;
+      }
+    });
+    if(all_ready) {
       start_playing(game);
     }
 

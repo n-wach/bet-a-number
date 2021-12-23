@@ -59,18 +59,15 @@ export default class GameClient {
     this.game_update_callback = callback;
   }
   get_this_player(): Player | null {
-    if(!this.game) return null;
-    if(!this.game.players) return null;
-    for(let player of this.game.players) {
-      if(player.id == this.socket.id) {
-        return player;
-      }
-    }
-    return null;
+    return this.game?.players.get(this.socket.id) || null;
   }
   get_other_players(): Player[] {
-    if(!this.game) return [];
-    if(!this.game.players) return [];
-    return this.game.players.filter((player) => player.id != this.socket.id);
+    const other_players: Player[] = [];
+    this.game?.players.forEach((player, playerId) => {
+      if(playerId !== this.socket.id) {
+        other_players.push(player);
+      }
+    });
+    return other_players;
   }
 }
