@@ -1,4 +1,4 @@
-import {Game, GameId, Player} from "../client/src/shared";
+import {CardStack, Color, Game, GameId, GameState, Player, PlayerId, Round, RoundId} from "../client/src/shared";
 import {Socket} from "socket.io";
 
 export default class GameManager {
@@ -20,6 +20,25 @@ export default class GameManager {
   }
   player_create_game(socket: Socket) {
     console.log("create game");
+    const player: Player = {
+      id: socket.id,
+      color: {r: 1, g: 0, b: 0},
+      ready: false,
+      remaining_cards: null,
+      won_rounds: null,
+      total_score: null,
+    };
+    const game: Game = {
+      id: "",
+      state: GameState.WAITING,
+      players: [player],
+      current_round: null,
+      previous_rounds: null,
+      remaining_cards: null,
+      remaining_prize_points: null,
+    }
+    this.games.set(game.id, game);
+
     this.send_available_games(socket, true);
   }
   player_join_game(socket: Socket, gameId: GameId) {

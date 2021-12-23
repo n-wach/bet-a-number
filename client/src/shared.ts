@@ -21,10 +21,10 @@ export type Round = {
 export type Player = {
   id: PlayerId;
   color: Color;
-  remaining_cards: CardStack;
-  won_rounds: RoundId[];
-  total_score: number;
   ready: boolean;
+  remaining_cards: CardStack | null;
+  won_rounds: RoundId[] | null;
+  total_score: number | null;
 }
 
 export enum GameState {
@@ -35,10 +35,10 @@ export enum GameState {
 
 export type Game = {
   id: GameId;
-  previous_rounds: Round[];
-  current_round: Round;
-  remaining_cards: CardStack;
-  remaining_prize_points: number;
-  players: Player[];
   state: GameState;
+  players: Player[];
+  current_round: Round | null;
+  previous_rounds: Round[] | null;
+  remaining_cards: CardStack | null;
+  remaining_prize_points: number | null;
 }
