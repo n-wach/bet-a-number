@@ -5,7 +5,7 @@ import path from "path";
 function getLines(file: string): string[] {
   const relpath = path.resolve(__dirname, file);
   const buffer = fs.readFileSync(relpath);
-  return buffer.toString().split("\n");
+  return buffer.toString().split(/\r?\n/);
 }
 
 function randomItem<T>(array: T[]): T {
