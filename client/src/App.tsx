@@ -1,8 +1,9 @@
 import React from 'react';
 import './App.css';
-import {io, Socket} from "socket.io-client";
+import GameClient from "./GameClient";
 
-const socket: Socket = io();
+const client = new GameClient();
+console.log(client);
 
 function App() {
   return (

@@ -2,7 +2,7 @@ export type Card = number;
 export type CardStack = Card[];
 
 export type GameId = string;
-export type PlayerId = number;
+export type PlayerId = string;
 export type RoundId = number;
 
 export type Color = {

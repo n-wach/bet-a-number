@@ -2,9 +2,9 @@ import * as http from "http";
 import express from "express";
 import path from "path";
 import { Server } from "socket.io";
-import {Game} from "../client/src/shared";
+import GameManager from "./GameManager";
 
-let game: Game;
+const gameManager: GameManager = new GameManager();
 
 const app = express();
 const server = http.createServer(app);
@@ -17,10 +17,7 @@ app.get('/', (req, res) => {
 app.use("/static", express.static(path.resolve(__dirname, "../client/build/static")))
 
 io.on("connection", (socket) => {
-  console.log("player connected");
-  socket.on('disconnect', () => {
-    console.log('player disconnected');
-  });
+  gameManager.player_connect(socket);
 });
 
 server.listen(3000, () => {
