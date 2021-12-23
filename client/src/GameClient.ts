@@ -1,5 +1,5 @@
 import {io, Socket} from "socket.io-client";
-import {Card, Game, GameId} from "./shared";
+import {Card, Game, GameId, Player} from "./shared";
 
 type AvailableGamesChangeCallback = (games: GameId[]) => any;
 type GameUpdateCallback = (game: Game | null) => any;
@@ -57,5 +57,20 @@ export default class GameClient {
   }
   on_game_update(callback: GameUpdateCallback | null) {
     this.game_update_callback = callback;
+  }
+  get_this_player(): Player | null {
+    if(!this.game) return null;
+    if(!this.game.players) return null;
+    for(let player of this.game.players) {
+      if(player.id == this.socket.id) {
+        return player;
+      }
+    }
+    return null;
+  }
+  get_other_players(): Player[] {
+    if(!this.game) return [];
+    if(!this.game.players) return [];
+    return this.game.players.filter((player) => player.id != this.socket.id);
   }
 }

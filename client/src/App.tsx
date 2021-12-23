@@ -3,7 +3,7 @@ import './App.css';
 import GameClient from "./GameClient";
 import {Game, GameId} from "./shared";
 import Lobby from "./Lobby";
-import PlayingArea from "./PlayingArea";
+import GameView from "./GameView";
 
 type AppState = {
   game: Game | null,
@@ -28,7 +28,7 @@ export default class App extends React.Component<any, AppState> {
     return (
         <div className="App">
           {this.state.game ?
-              <PlayingArea client={this.client} game={this.state.game}/> :
+              <GameView client={this.client} game={this.state.game}/> :
               <Lobby client={this.client} games={this.state.available_games}/>
           }
         </div>
