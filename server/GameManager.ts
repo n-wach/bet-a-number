@@ -138,7 +138,6 @@ export default class GameManager {
   private io: Server;
   constructor(io: Server) {
     this.io = io;
-    console.log(io);
   }
 
   private games: Map<GameId, Game> = new Map<GameId, Game>();
