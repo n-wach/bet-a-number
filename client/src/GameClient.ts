@@ -18,7 +18,9 @@ export default class GameClient {
     this.game = null;
     this.game_update_callback = game_update_callback;
 
-    this.socket = io();
+    this.socket = io({
+      path: window.location.pathname + "socket.io",
+    });
     this.socket.on("list games", (games) => {
       this.available_games = games;
       console.log("available games", this.available_games);
