@@ -94,15 +94,52 @@ function new_player(id: PlayerId, game: Game): Player {
   }
 }
 
-function get_round_winner(round: Round): Player | null {
+function get_round_winner(round: Round): PlayerId | null {
+  let bets = Array.from(round.bets.entries()); // [playerId, bet]
 
-  return null;
+  // put players into buckets by their bets
+  let sameBetters = new Map<number, PlayerId[]>();
+  for(let [playerId, bet] of bets) {
+    if(!sameBetters.has(bet)) sameBetters.set(bet, []);
+
+    let playersWithThisBet = sameBetters.get(bet);
+    playersWithThisBet?.push(playerId);
+  }
+
+  // remove any bucket that doesn't have 1 player (ties)
+  for(let [playerId, bet] of bets) {
+    if(sameBetters.get(bet)?.length !== 1) {
+      sameBetters.delete(bet);
+    }
+  }
+  let uniqueBets = Array.from(sameBetters.entries()); // [bet, [playerId]]
+
+  // if no unique bets, it's all a tie and nobody wins.
+  if(uniqueBets.length == 0) {
+    return null;
+  }
+
+  // otherwise, sort unique bets by card value. ascending order
+  uniqueBets.sort((a, b) => a[0] - b[0]);
+
+  let prize_value = sum(round.prize_pool);
+  if(prize_value > 0) {
+    // pick highest
+    return uniqueBets[uniqueBets.length - 1][1][0];
+  } else {
+    // pick lowest
+    return uniqueBets[0][1][0];
+  }
 }
 
 function next_round(game: Game) {
   if(game.remaining_cards.length == 0) {
     // no more rounds. game over
     game.state = GameState.ENDED;
+    if(game.current_round) {
+      game.previous_rounds.push(game.current_round);
+    }
+    game.current_round = null;
     return;
   }
 
@@ -113,11 +150,14 @@ function next_round(game: Game) {
 
   // process last round
   // reward winner if exists
-  const winner = get_round_winner(game.current_round);
-  if(winner) {
-    game.current_round.winner = winner.id;
-    winner.total_score += sum(game.current_round.prize_pool);
-    winner.won_rounds.push(game.current_round.id);
+  const winnerId = get_round_winner(game.current_round);
+  if(winnerId) {
+    const winner = game.players.get(winnerId);
+    if(winner) {
+      game.current_round.winner = winner.id;
+      winner.total_score += sum(game.current_round.prize_pool);
+      winner.won_rounds.push(game.current_round.id);
+    }
   }
 
   // remove player bets
@@ -140,7 +180,7 @@ function next_round(game: Game) {
     prize_pool: [next_point],
     winner: null,
   }
-  if(winner === null) {
+  if(!winnerId) {
     // previous points copy over if nobody won
     next_round.prize_pool.push(...game.current_round.prize_pool);
   }
