@@ -37,4 +37,5 @@ export type Game = {
   current_round: Round | null;
   previous_rounds: Round[];
   remaining_cards: CardStack;
+  move_timer: NodeJS.Timeout | null;
 }
