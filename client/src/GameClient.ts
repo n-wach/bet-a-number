@@ -27,6 +27,14 @@ export default class GameClient {
       }
     });
     this.socket.on("game update", (game) => {
+      // Map is not serializable over socket io, so we must convert
+      // from Object into Map manually... ugh.
+      if(game !== null) {
+        game.players = new Map(game.players);
+        for(let round of game.previous_rounds) {
+          round.bets = new Map(round.bets);
+        }
+      }
       this.game = game;
       console.log("game update", this.game);
       if(this.game_update_callback !== null) {
