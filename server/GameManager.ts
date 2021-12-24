@@ -79,6 +79,7 @@ function new_game(): Game {
     current_round: null,
     previous_rounds: [],
     remaining_cards: new_point_deck(),
+    move_timer: null,
   }
 }
 
@@ -132,75 +133,6 @@ function get_round_winner(round: Round): PlayerId | null {
   }
 }
 
-function next_round(game: Game) {
-  if(game.current_round === null) {
-    console.error("Unexpected null current_round");
-    return;
-  }
-
-  // process last round
-  // reward winner if exists
-  const winnerId = get_round_winner(game.current_round);
-  if(winnerId) {
-    const winner = game.players.get(winnerId);
-    if(winner) {
-      game.current_round.winner = winner.id;
-      winner.total_score += sum(game.current_round.prize_pool);
-      winner.won_rounds.push(game.current_round.id);
-    }
-  }
-
-  // remove player bets
-  game.players.forEach((player) => {
-    let cards = player.remaining_cards;
-    let bet = game.current_round?.bets.get(player.id);
-    if(bet === undefined) {
-      // if player didn't place a bet: pick a random one.
-      bet = cards[Math.floor(Math.random() * cards.length)];
-    }
-    // remove
-    cards.splice(cards.indexOf(bet), 1);
-  })
-
-  if(game.remaining_cards.length == 0) {
-    // no more rounds. game over
-    game.state = GameState.ENDED;
-    if(game.current_round) {
-      game.previous_rounds.push(game.current_round);
-    }
-    game.current_round = null;
-    return;
-  }
-
-  // prepare next round
-  let next_point = popRandomItem(game.remaining_cards);
-  let next_round = {
-    id: game.current_round.id + 1,
-    bets: new Map<PlayerId, Card>(),
-    prize_pool: [next_point],
-    winner: null,
-  }
-  if(!winnerId) {
-    // previous points copy over if nobody won
-    next_round.prize_pool.push(...game.current_round.prize_pool);
-  }
-
-  game.previous_rounds.push(game.current_round);
-  game.current_round = next_round;
-}
-
-function start_playing(game: Game) {
-  game.state = GameState.PLAYING;
-
-  const point = popRandomItem(game.remaining_cards);
-
-  game.current_round = {
-    id: 0,
-    bets: new Map(),
-    prize_pool: [point],
-    winner: null,
-  }
-}
 
 export default class GameManager {
   private io: Server;
@@ -313,7 +245,7 @@ export default class GameManager {
       }
     });
     if(all_ready) {
-      start_playing(game);
+      this.start_playing(socket, game);
       this.send_available_games(socket, true);
     }
 
@@ -364,7 +296,7 @@ export default class GameManager {
 
     if(game.current_round.bets.size == game.players.size) {
       // everyone has bet; next round.
-      next_round(game);
+      this.next_round(socket, game);
     }
 
     this.send_game_update(socket, game);
@@ -374,6 +306,10 @@ export default class GameManager {
 
     // SocketIO uses JSON, which doesn't support Maps.
     // We must convert to Array of [key, value] manually.
+
+    // Before JSONing, remove move_timer (circular structure).
+    const move_timer = game.move_timer;
+    game.move_timer = null;
 
     // We also want to hide current bets by mapping the bets of other players to -1.
 
@@ -407,6 +343,8 @@ export default class GameManager {
       playerSocket?.emit("game update", clean_game);
     });
 
+    // restore move_timer
+    game.move_timer = move_timer;
   }
   send_available_games(socket: Socket, broadcastToAllInLobby: boolean = true) {
     console.log("send available games");
@@ -421,6 +359,101 @@ export default class GameManager {
       socket.to("lobby").emit("list games", waitingGameIds);
     }
     socket.emit("list games", waitingGameIds);
+  }
+  next_round(socket: Socket, game: Game) {
+    // cancel any pending move timer
+    if(game.move_timer) clearInterval(game.move_timer);
+
+    if(game.current_round === null) {
+      console.error("Unexpected null current_round");
+      return;
+    }
+
+    // process last round
+    // make random bets for any player that didn't pick one
+    game.players.forEach((player) => {
+      let bet = game.current_round?.bets.get(player.id);
+      if(bet === undefined) {
+        // if player didn't place a bet: pick a random one.
+        bet = player.remaining_cards[Math.floor(Math.random() * player.remaining_cards.length)];
+        game.current_round?.bets.set(player.id, bet);
+      }
+    });
+
+    // reward winner if exists
+    const winnerId = get_round_winner(game.current_round);
+    if(winnerId) {
+      const winner = game.players.get(winnerId);
+      if(winner) {
+        game.current_round.winner = winner.id;
+        winner.total_score += sum(game.current_round.prize_pool);
+        winner.won_rounds.push(game.current_round.id);
+      }
+    }
+
+    // remove player bets
+    game.players.forEach((player) => {
+      let cards = player.remaining_cards;
+      let bet = game.current_round?.bets.get(player.id);
+      if(bet === undefined) return; // everyone should have made a bet, this just makes typescript happy.
+      // remove bet from player cards
+      cards.splice(cards.indexOf(bet), 1);
+    });
+
+    if(game.remaining_cards.length == 0) {
+      // no more rounds. game over
+      game.state = GameState.ENDED;
+      if(game.current_round) {
+        game.previous_rounds.push(game.current_round);
+      }
+      game.current_round = null;
+      return;
+    }
+
+    // prepare next round
+    let next_point = popRandomItem(game.remaining_cards);
+    let new_round = {
+      id: game.current_round.id + 1,
+      bets: new Map<PlayerId, Card>(),
+      prize_pool: [next_point],
+      winner: null,
+    }
+    if(!winnerId) {
+      // previous points copy over if nobody won
+      new_round.prize_pool.push(...game.current_round.prize_pool);
+    }
+
+    game.previous_rounds.push(game.current_round);
+    game.current_round = new_round;
+
+    // schedule the next round to happen in 15 seconds.
+    // if all players make bets beforehand, this will be cancelled.
+    game.move_timer = setInterval(() => {
+      console.log("next round triggered from delay");
+      this.next_round(socket, game);
+      this.send_game_update(socket, game);
+    }, 15000);
+  }
+
+  start_playing(socket: Socket, game: Game) {
+    game.state = GameState.PLAYING;
+
+    const point = popRandomItem(game.remaining_cards);
+
+    game.current_round = {
+      id: 0,
+      bets: new Map(),
+      prize_pool: [point],
+      winner: null,
+    }
+
+    // schedule the next round to happen in 15 seconds.
+    // if all players make bets beforehand, this will be cancelled.
+    game.move_timer = setInterval(() => {
+      console.log("next round triggered from delay");
+      this.next_round(socket, game);
+      this.send_game_update(socket, game);
+    }, 15000);
   }
 }
 
