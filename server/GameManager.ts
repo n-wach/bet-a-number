@@ -1,6 +1,15 @@
-import {CardStack, Color, Game, GameId, GameState, Player, PlayerId} from "../client/src/shared";
-import {Socket} from "socket.io";
+import {Card, CardStack, Color, Game, GameId, GameState, Player, PlayerId, Round} from "../client/src/shared";
+import {Server, Socket} from "socket.io";
 import {randomAdjective, randomNoun} from "./namer";
+
+function popRandomItem<T>(array: T[]): T {
+  const i = Math.floor(Math.random() * array.length);
+  return array.splice(i, 1)[0];
+}
+
+function sum(array: number[]): number {
+  return array.reduce((p, c) => p + c);
+}
 
 function capitalize(s: string): string {
   if(s.length == 0) {
@@ -40,7 +49,7 @@ const colors: Color[] = [
 ]
 
 function new_player_color(game: Game): Color {
-  return colors[game.players.length];
+  return colors[game.players.size];
 }
 
 function new_point_deck(): CardStack {
@@ -66,7 +75,7 @@ function new_game(): Game {
   return {
     id: new_game_id(),
     state: GameState.WAITING,
-    players: [],
+    players: new Map<PlayerId, Player>(),
     current_round: null,
     previous_rounds: [],
     remaining_cards: new_point_deck(),
@@ -85,14 +94,123 @@ function new_player(id: PlayerId, game: Game): Player {
   }
 }
 
+function get_round_winner(round: Round): PlayerId | null {
+  let bets = Array.from(round.bets.entries()); // [playerId, bet]
+
+  // put players into buckets by their bets
+  let sameBetters = new Map<number, PlayerId[]>();
+  for(let [playerId, bet] of bets) {
+    if(!sameBetters.has(bet)) sameBetters.set(bet, []);
+
+    let playersWithThisBet = sameBetters.get(bet);
+    playersWithThisBet?.push(playerId);
+  }
+
+  // remove any bucket that doesn't have 1 player (ties)
+  for(let [playerId, bet] of bets) {
+    if(sameBetters.get(bet)?.length !== 1) {
+      sameBetters.delete(bet);
+    }
+  }
+  let uniqueBets = Array.from(sameBetters.entries()); // [bet, [playerId]]
+
+  // if no unique bets, it's all a tie and nobody wins.
+  if(uniqueBets.length == 0) {
+    return null;
+  }
+
+  // otherwise, sort unique bets by card value. ascending order
+  uniqueBets.sort((a, b) => a[0] - b[0]);
+
+  let prize_value = sum(round.prize_pool);
+  if(prize_value > 0) {
+    // pick highest
+    return uniqueBets[uniqueBets.length - 1][1][0];
+  } else {
+    // pick lowest
+    return uniqueBets[0][1][0];
+  }
+}
+
+function next_round(game: Game) {
+  if(game.remaining_cards.length == 0) {
+    // no more rounds. game over
+    game.state = GameState.ENDED;
+    if(game.current_round) {
+      game.previous_rounds.push(game.current_round);
+    }
+    game.current_round = null;
+    return;
+  }
+
+  if(game.current_round === null) {
+    console.error("Unexpected null current_round");
+    return;
+  }
+
+  // process last round
+  // reward winner if exists
+  const winnerId = get_round_winner(game.current_round);
+  if(winnerId) {
+    const winner = game.players.get(winnerId);
+    if(winner) {
+      game.current_round.winner = winner.id;
+      winner.total_score += sum(game.current_round.prize_pool);
+      winner.won_rounds.push(game.current_round.id);
+    }
+  }
+
+  // remove player bets
+  game.players.forEach((player) => {
+    let cards = player.remaining_cards;
+    let bet = game.current_round?.bets.get(player.id);
+    if(bet === undefined) {
+      // if player didn't place a bet: pick a random one.
+      bet = cards[Math.floor(Math.random() * cards.length)];
+    }
+    // remove
+    cards.splice(cards.indexOf(bet), 1);
+  })
+
+  // prepare next round
+  let next_point = popRandomItem(game.remaining_cards);
+  let next_round = {
+    id: game.current_round.id + 1,
+    bets: new Map<PlayerId, Card>(),
+    prize_pool: [next_point],
+    winner: null,
+  }
+  if(!winnerId) {
+    // previous points copy over if nobody won
+    next_round.prize_pool.push(...game.current_round.prize_pool);
+  }
+
+  game.previous_rounds.push(game.current_round);
+  game.current_round = next_round;
+}
+
 function start_playing(game: Game) {
   game.state = GameState.PLAYING;
-  // init everything.
+
+  const point = popRandomItem(game.remaining_cards);
+
+  game.current_round = {
+    id: 0,
+    bets: new Map(),
+    prize_pool: [point],
+    winner: null,
+  }
 }
 
 export default class GameManager {
+  private io: Server;
+  constructor(io: Server) {
+    this.io = io;
+    console.log(io);
+  }
+
   private games: Map<GameId, Game> = new Map<GameId, Game>();
-  private players: Map<string, Player> = new Map<string, Player>();
+  private players: Map<PlayerId, Player> = new Map<PlayerId, Player>();
   player_connect(socket: Socket) {
     socket.on("disconnect", this.player_disconnect.bind(this, socket));
     socket.on("create game", this.player_create_game.bind(this, socket));
@@ -139,8 +257,8 @@ export default class GameManager {
     socket.leave("lobby");
     socket.join(game.id);
     const player = new_player(socket.id, game);
-    this.players.set(socket.id, player);
-    game.players.push(player);
+    this.players.set(player.id, player);
+    game.players.set(player.id, player);
     this.send_game_update(socket, game);
   }
   player_leave_game(socket: Socket) {
@@ -156,8 +274,8 @@ export default class GameManager {
       return;
     }
 
-    game.players = game.players.filter((value) => value !== player);
-    if(game.players.length === 0) {
+    game.players.delete(player.id);
+    if(game.players.size === 0) {
       console.log("Deleting game with no players:", game.id);
       this.games.delete(game.id);
     }
@@ -187,8 +305,16 @@ export default class GameManager {
     }
 
     player.ready = true;
-    if(game.players.every((player) => player.ready)) {
+
+    let all_ready = true;
+    game.players.forEach((player) => {
+      if(!player.ready) {
+        all_ready = false;
+      }
+    });
+    if(all_ready) {
       start_playing(game);
+      this.send_available_games(socket, true);
     }
 
     this.send_game_update(socket, game);
@@ -214,16 +340,73 @@ export default class GameManager {
 
     this.send_game_update(socket, game);
   }
-  player_make_bet(socket: Socket) {
+  player_make_bet(socket: Socket, bet: Card) {
     console.log("make bet");
-    // game logic.
-  }
-  send_game_update(socket: Socket, game: Game, broadcastToAllPlayers: boolean = true) {
-    console.log("send game update");
-    if(broadcastToAllPlayers) {
-      socket.to(game.id).emit("game update", game);
+    const player = this.players.get(socket.id);
+    if(!player) {
+      console.error("Can't bet when not in a game.");
+      return;
     }
-    socket.emit("game update", game);
+    const game = this.games.get(player.gameId);
+    if(!game) {
+      console.error("Player not in a valid game.");
+      return;
+    }
+    if(!game.current_round) {
+      console.error("No current round in game.");
+      return;
+    }
+    if(player.remaining_cards.indexOf(bet) == -1) {
+      console.error("Can't bet a card player doesn't have.");
+      return;
+    }
+    game.current_round.bets.set(player.id, bet);
+
+    if(game.current_round.bets.size == game.players.size) {
+      // everyone has bet; next round.
+      next_round(game);
+    }
+
+    this.send_game_update(socket, game);
+  }
+  send_game_update(socket: Socket, game: Game) {
+    console.log("send game update");
+
+    // SocketIO uses JSON, which doesn't support Maps.
+    // We must convert to Array of [key, value] manually.
+
+    // We also want to hide current bets by mapping the bets of other players to -1.
+
+    // Start with a deep clone of the game.
+    let clean_game: any = JSON.parse(JSON.stringify(game));
+
+    // Set players
+    clean_game.players = Array.from(game.players.entries());
+
+    // Set previous round bets
+    for(let i = 0; i < game.previous_rounds.length; i++) {
+      const round = game.previous_rounds[i];
+      clean_game.previous_rounds[i].bets = Array.from(round.bets.entries());
+    }
+
+    // Revealed bets need to be tailored to each player before sending.
+    game.players.forEach((player) => {
+      // Set current round bets
+      if(game.current_round) {
+        clean_game.current_round.bets = [];
+        game.current_round.bets.forEach((bet, playerId) => {
+          let shownBet = -1;
+          if(playerId == socket.id) {
+            shownBet = bet;
+          }
+          clean_game.current_round.bets.push([playerId, shownBet]);
+        });
+      }
+      // Hacky way to get player's socket.
+      let playerSocket = this.io.sockets.sockets.get(player.id);
+      playerSocket?.emit("game update", clean_game);
+    });
+
   }
   send_available_games(socket: Socket, broadcastToAllInLobby: boolean = true) {
     console.log("send available games");

@@ -4,11 +4,11 @@ import path from "path";
 import { Server } from "socket.io";
 import GameManager from "./GameManager";
 
-const gameManager: GameManager = new GameManager();
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+const gameManager: GameManager = new GameManager(io);
 
 app.get('/', (req, res) => {
   res.sendFile(path.resolve(__dirname, "../client/build/index.html"));

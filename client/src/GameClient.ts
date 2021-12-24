@@ -27,8 +27,20 @@ export default class GameClient {
       }
     });
     this.socket.on("game update", (game) => {
+      // Map is not serializable over socket io, so we must convert
+      // from Object into Map manually... ugh.
+      console.log("game update pre", this.game);
+      if(game !== null) {
+        game.players = new Map(game.players);
+        for(let round of game.previous_rounds) {
+          round.bets = new Map(round.bets);
+        }
+        if(game.current_round) {
+          game.current_round.bets = new Map(game.current_round.bets);
+        }
+      }
       this.game = game;
-      console.log("game update", this.game);
+      console.log("game update post", this.game);
       if(this.game_update_callback !== null) {
         this.game_update_callback(this.game);
       }
@@ -59,18 +71,15 @@ export default class GameClient {
     this.game_update_callback = callback;
   }
   get_this_player(): Player | null {
-    if(!this.game) return null;
-    if(!this.game.players) return null;
-    for(let player of this.game.players) {
-      if(player.id == this.socket.id) {
-        return player;
-      }
-    }
-    return null;
+    return this.game?.players.get(this.socket.id) || null;
   }
   get_other_players(): Player[] {
-    if(!this.game) return [];
-    if(!this.game.players) return [];
-    return this.game.players.filter((player) => player.id != this.socket.id);
+    const other_players: Player[] = [];
+    this.game?.players.forEach((player, playerId) => {
+      if(playerId !== this.socket.id) {
+        other_players.push(player);
+      }
+    });
+    return other_players;
   }
 }

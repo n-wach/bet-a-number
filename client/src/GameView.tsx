@@ -21,7 +21,7 @@ export default class GameView extends React.Component<GameViewProps> {
             {this.props.game.id}
           </h1>
           <p>
-            Playing with {this.props.game.players.length} player{this.props.game.players.length > 1 ? "s" : ""}.
+            Playing with {this.props.game.players.size} player{this.props.game.players.size > 1 ? "s" : ""}.
           </p>
           { this.props.game.state == GameState.WAITING ?
               <WaitingArea client={this.props.client} game={this.props.game}/>: null
