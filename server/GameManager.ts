@@ -208,6 +208,9 @@ export default class GameManager {
     game.players.delete(player.id);
     if(game.players.size === 0) {
       console.log("Deleting game with no players:", game.id);
+      if(game.move_timer) {
+        clearInterval(game.move_timer);
+      }
       this.games.delete(game.id);
     }
 
@@ -361,7 +364,10 @@ export default class GameManager {
   }
   next_round(socket: Socket, game: Game) {
     // cancel any pending move timer
-    if(game.move_timer) clearInterval(game.move_timer);
+    if(game.move_timer) {
+      clearInterval(game.move_timer);
+      game.move_timer = null;
+    }
 
     if(game.current_round === null) {
       console.error("Unexpected null current_round");
