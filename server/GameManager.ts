@@ -274,6 +274,7 @@ export default class GameManager {
     });
     if(all_ready) {
       start_playing(game);
+      this.send_available_games(socket, true);
     }
 
     this.send_game_update(socket, game);
