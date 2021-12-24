@@ -133,16 +133,6 @@ function get_round_winner(round: Round): PlayerId | null {
 }
 
 function next_round(game: Game) {
-  if(game.remaining_cards.length == 0) {
-    // no more rounds. game over
-    game.state = GameState.ENDED;
-    if(game.current_round) {
-      game.previous_rounds.push(game.current_round);
-    }
-    game.current_round = null;
-    return;
-  }
-
   if(game.current_round === null) {
     console.error("Unexpected null current_round");
     return;
@@ -171,6 +161,16 @@ function next_round(game: Game) {
     // remove
     cards.splice(cards.indexOf(bet), 1);
   })
+
+  if(game.remaining_cards.length == 0) {
+    // no more rounds. game over
+    game.state = GameState.ENDED;
+    if(game.current_round) {
+      game.previous_rounds.push(game.current_round);
+    }
+    game.current_round = null;
+    return;
+  }
 
   // prepare next round
   let next_point = popRandomItem(game.remaining_cards);
