@@ -27,6 +27,9 @@ export default class App extends React.Component<any, AppState> {
   render() {
     return (
         <div className="App">
+          <div>
+            <img src={"logo.png"} alt={"Bet a Number Logo"}/>
+          </div>
           {this.state.game ?
               <GameView client={this.client} game={this.state.game}/> :
               <Lobby client={this.client} games={this.state.available_games}/>
