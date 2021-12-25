@@ -1,8 +1,7 @@
 *.js
 *.js.map
+!client/**.js
 node_modules/
 client/node_modules/
 client/build
 .idea/
-!/client/scripts/*
-!/client/config/**
