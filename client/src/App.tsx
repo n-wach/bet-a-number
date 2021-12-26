@@ -1,5 +1,4 @@
 import React from 'react';
-import './App.css';
 import GameClient from "./GameClient";
 import {Game, GameId} from "./shared";
 import Lobby from "./Lobby";
@@ -26,10 +25,10 @@ export default class App extends React.Component<any, AppState> {
   }
   render() {
     return (
-        <div className="App">
-          <div>
-            <img src={"logo.png"} alt={"Bet a Number Logo"}/>
-          </div>
+        <div className="py-10">
+          <h1 className="text-4xl text-center font font-extrabold tracking-tight text-gray-900 sm:text-6xl">
+            Bet a Number!
+          </h1>
           {this.state.game ?
               <GameView client={this.client} game={this.state.game}/> :
               <Lobby client={this.client} games={this.state.available_games}/>
