@@ -205,6 +205,9 @@ export default class GameManager {
       return;
     }
 
+    this.players.delete(socket.id);
+    socket.leave(game.id);
+
     game.players.delete(player.id);
     if(game.players.size === 0) {
       console.log("Deleting game with no players:", game.id);
@@ -212,11 +215,10 @@ export default class GameManager {
         clearInterval(game.move_timer);
       }
       this.games.delete(game.id);
+      this.send_available_games(socket, true);
+    } else {
+      this.send_game_update(socket, game);
     }
-
-    this.players.delete(socket.id);
-    socket.leave(game.id);
-    this.send_game_update(socket, game);
 
     socket.join("lobby");
     this.send_available_games(socket, false);
