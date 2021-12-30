@@ -16,11 +16,11 @@ export default class Lobby extends React.Component<LobbyProps> {
         <div className="space-y-10">
           <div className="text-center space-y-10 space-x-8">
             <a onClick={() => alert("You'll figure it out...")}
-               className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 shadow">
+               className="inline-flex items-center justify-center px-5 py-3 text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 shadow">
               How to Play
             </a>
             <a onClick={() => this.props.client.create_game()}
-               className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 shadow">
+               className="inline-flex items-center justify-center px-5 py-3 text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 shadow">
               Create a Game
             </a>
           </div>
@@ -29,8 +29,8 @@ export default class Lobby extends React.Component<LobbyProps> {
             <h3 className="text-lg">
               Or join an existing game:
             </h3>
-            <div className="py-2 align-middle inline-block max-w-full w-1/2 sm:px-6 lg:px-8">
-              <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+            <div className="py-2 align-middle inline-block max-w-full w-[72rem] px-4">
+              <div className="shadow overflow-auto border-b border-gray-200 sm:rounded-lg">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                   <tr>

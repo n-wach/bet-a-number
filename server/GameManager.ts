@@ -206,6 +206,7 @@ export default class GameManager {
     }
 
     this.players.delete(socket.id);
+    socket.emit("game update", null);
     socket.leave(game.id);
 
     game.players.delete(player.id);
