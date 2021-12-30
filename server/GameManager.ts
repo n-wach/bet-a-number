@@ -218,6 +218,17 @@ export default class GameManager {
       this.games.delete(game.id);
       this.send_available_games(socket, true);
     } else {
+      // TODO: Refactor to remove duplicated code
+      let all_ready = true;
+      game.players.forEach((player) => {
+        if(!player.ready) {
+          all_ready = false;
+        }
+      });
+      if(all_ready) {
+        this.start_playing(socket, game);
+        this.send_available_games(socket, true);
+      }
       this.send_game_update(socket, game);
     }
 
