@@ -17,8 +17,8 @@ export default class GameView extends React.Component<GameViewProps> {
       return "Waiting for all players to be ready";
     }
     if(status == GameState.PLAYING) {
-      if(!this.props.game.current_round) {
-        return "Unknown round";
+      if(!this.props.client.get_this_player() || !this.props.game.current_round) {
+        return "Error, please refresh.";
       }
       return `Round ${this.props.game.current_round?.id + 1} of 15`
     }
@@ -45,7 +45,7 @@ export default class GameView extends React.Component<GameViewProps> {
           { this.props.game.state == GameState.WAITING ?
               <WaitingArea client={this.props.client} game={this.props.game}/>: null
           }
-          { this.props.game.state == GameState.PLAYING ?
+          { this.props.game.state == GameState.PLAYING && this.props.client.get_this_player() ?
               <PlayingArea client={this.props.client} game={this.props.game}/> : null
           }
           { this.props.game.state == GameState.ENDED ?
