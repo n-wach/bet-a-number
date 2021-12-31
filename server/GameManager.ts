@@ -315,6 +315,7 @@ export default class GameManager {
     if(game.current_round.bets.size == game.players.size) {
       // everyone has bet; next round.
       this.next_round(socket, game);
+      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
     }
 
     this.send_game_update(socket, game);
@@ -416,9 +417,9 @@ export default class GameManager {
     game.players.forEach((player) => {
       let cards = player.remaining_cards;
       let bet = game.current_round?.bets.get(player.id);
-      if(bet === undefined) return; // everyone should have made a bet, this just makes typescript happy.
+      // everyone should have made a bet, this just makes typescript happy.
       // remove bet from player cards
-      cards.splice(cards.indexOf(bet), 1);
+      cards.splice(cards.indexOf(bet as number), 1);
     });
 
     if(game.remaining_cards.length == 0) {
@@ -452,6 +453,7 @@ export default class GameManager {
     game.move_timer = setInterval(() => {
       console.log("next round triggered from delay");
       this.next_round(socket, game);
+      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
       this.send_game_update(socket, game);
     }, 15000);
   }
@@ -473,6 +475,7 @@ export default class GameManager {
     game.move_timer = setInterval(() => {
       console.log("next round triggered from delay");
       this.next_round(socket, game);
+      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
       this.send_game_update(socket, game);
     }, 15000);
   }

@@ -1,8 +1,9 @@
 import {io, Socket} from "socket.io-client";
-import {Card, Game, GameId, Player} from "./shared";
+import {Card, Game, GameId, Player, Round} from "./shared";
 
 type AvailableGamesChangeCallback = (games: GameId[]) => any;
 type GameUpdateCallback = (game: Game | null) => any;
+type NextRoundCallback = (last_round: Round) => any;
 
 export default class GameClient {
   private socket: Socket;
@@ -10,20 +11,22 @@ export default class GameClient {
   private available_games_change_callback: AvailableGamesChangeCallback | null;
   private game: Game | null;
   private game_update_callback: GameUpdateCallback | null;
+  private next_round_callback: NextRoundCallback | null;
 
   constructor(available_games_change_callback: AvailableGamesChangeCallback | null = null,
-              game_update_callback: GameUpdateCallback | null = null) {
+              game_update_callback: GameUpdateCallback | null = null,
+              next_round_callback: NextRoundCallback | null = null) {
     this.available_games = [];
     this.available_games_change_callback = available_games_change_callback;
     this.game = null;
     this.game_update_callback = game_update_callback;
+    this.next_round_callback = next_round_callback;
 
     this.socket = io({
       path: window.location.pathname + "socket.io",
     });
     this.socket.on("list games", (games) => {
       this.available_games = games;
-      console.log("available games", this.available_games);
       if(this.available_games_change_callback !== null) {
         this.available_games_change_callback(this.available_games);
       }
@@ -31,7 +34,6 @@ export default class GameClient {
     this.socket.on("game update", (game) => {
       // Map is not serializable over socket io, so we must convert
       // from Object into Map manually... ugh.
-      console.log("game update pre", this.game);
       if(game !== null) {
         game.players = new Map(game.players);
         for(let round of game.previous_rounds) {
@@ -42,11 +44,15 @@ export default class GameClient {
         }
       }
       this.game = game;
-      console.log("game update post", this.game);
       if(this.game_update_callback !== null) {
         this.game_update_callback(this.game);
       }
     });
+    this.socket.on("next round", (last_round) => {
+      if(this.next_round_callback) {
+        this.next_round_callback(last_round);
+      }
+    })
   }
   create_game() {
     this.socket.emit("create game");
@@ -71,6 +77,9 @@ export default class GameClient {
   }
   on_game_update(callback: GameUpdateCallback | null) {
     this.game_update_callback = callback;
+  }
+  on_next_round(callback: NextRoundCallback | null) {
+    this.next_round_callback = callback;
   }
   get_this_player(): Player | null {
     return this.game?.players.get(this.socket.id) || null;

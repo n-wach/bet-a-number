@@ -1,5 +1,5 @@
 import GameClient from "./GameClient";
-import {Card, Game, GameId, Player} from "./shared";
+import {Card, Game, GameId, Player, Round} from "./shared";
 import React from "react";
 
 type PlayerIconProps = {
@@ -108,6 +108,14 @@ type PlayingAreaProps = {
 }
 
 export default class PlayingArea extends React.Component<PlayingAreaProps> {
+  constructor(props: PlayingAreaProps) {
+    super(props);
+    this.props.client.on_next_round((round) => this.animate_round_advancement(round));
+  }
+  animate_round_advancement(round: Round) {
+    console.log("next round", round);
+    // todo: animation and stuff
+  }
   render() {
     return (
         <div className="flex flex-col items-center justify-between text-center min-h-[70vh]">
@@ -117,15 +125,57 @@ export default class PlayingArea extends React.Component<PlayingAreaProps> {
             )}
           </div>
 
-          <div>
-            <div>
-              <span>Prize Pool:</span>
-              <code>{ JSON.stringify(this.props.game.current_round?.prize_pool) }</code>
+          <div className="flex justify-between w-full">
+            <div className="flex flex-col">
+              <span>Prize Pool (TODO points):</span>
+              <div className="inline-flex flex-wrap gap-2 text-center text-4xl w-full">
+                { this.props.game.current_round?.prize_pool.map( (card) => {
+                      if (card > 0) {
+                        return <div
+                            className="cursor-not-allowed inline-block rounded-md w-24 h-24 border-4 border-amber-400 text-amber-400">
+                          <p>{card}</p>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="inline-block h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      } else {
+                        return <div
+                            className="cursor-not-allowed inline-block rounded-md w-24 h-24 border-4 border-indigo-600 text-indigo-600">
+                          <p>{card}</p>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="inline-block h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      }
+                    }
+                )}
+              </div>
+              <span>Highest unique bet takes.</span>
             </div>
             <div>
-              <span>Remaining Time:</span>
+              <span>
+                Remaining Time:
+              </span>
               <span>TODO seconds</span>
             </div>
+            <div>
+              <div className="text-lg">
+                <div
+                    className="cursor-pointer inline-block rounded-md w-24 h-24 border-4 border-gray-400 text-gray-400 hover:bg-gray-200">
+                  <p>Discard</p>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="inline-block h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                </div>
+              </div>
+              <span>
+                Click for History
+              </span>
+            </div>
+          </div>
+
+          <div>
+            Bet animation area
           </div>
 
           <div>
