@@ -106,15 +106,42 @@ type PlayingAreaProps = {
   client: GameClient;
   game: Game;
 }
+type PlayingAreaState = {
+  display_bets: boolean;
+  remaining_time: number;
+}
 
-export default class PlayingArea extends React.Component<PlayingAreaProps> {
+export default class PlayingArea extends React.Component<PlayingAreaProps, PlayingAreaState> {
+  private animateHandle: number | null;
+  private timerHandle: number | null;
   constructor(props: PlayingAreaProps) {
     super(props);
-    this.props.client.on_next_round((round) => this.animate_round_advancement(round));
+    this.props.client.on_next_round((round) => {
+      this.animate_round_advancement(round);
+      this.setState({remaining_time: 14});
+    });
+    this.state = {
+      display_bets: false,
+      remaining_time: 14,
+    };
+    this.animateHandle = null;
+    this.timerHandle = setInterval(() => {
+      let new_time = 0;
+      if(this.state.remaining_time > 0) {
+        new_time = this.state.remaining_time - 1;
+      }
+      this.setState({remaining_time: new_time});
+    }, 1000) as unknown as number;
   }
   animate_round_advancement(round: Round) {
     console.log("next round", round);
-    // todo: animation and stuff
+    if(this.animateHandle !== null) {
+      clearTimeout(this.animateHandle);
+    }
+    this.setState({ display_bets: true });
+    this.animateHandle = setTimeout(() => {
+      this.setState({display_bets: false});
+    }, 3000) as unknown as number;
   }
   render() {
     return (
@@ -152,12 +179,39 @@ export default class PlayingArea extends React.Component<PlayingAreaProps> {
               </div>
               <span>Highest unique bet takes.</span>
             </div>
-            <div>
+            { this.state.display_bets ?
+                <div>
+                  Bet Area
+                  <div className="flex-wrap gap-2 text-center text-4xl w-full">
+                    { Array.from(this.props.game.previous_rounds[this.props.game.previous_rounds.length - 1].bets.entries()).map(([key, value]) => {
+                          let player = this.props.game.players.get(key) as Player;
+                          let winner = this.props.game.previous_rounds[this.props.game.previous_rounds.length - 1].winner;
+                          return <div className="cursor-not-allowed inline-block rounded-md w-24 h-24 border-4" style={
+                            {
+                              borderColor: player.color,
+                              color: player.color
+                            }
+                          }>
+                            <p>{value}</p>
+                            { player.id == winner &&
+                                <svg xmlns="http://www.w3.org/2000/svg" className="inline-block h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
+                                </svg>
+                            }
+                          </div>
+                        }
+                    )}
+                  </div>
+                </div>
+                :
+                <div>
               <span>
                 Remaining Time:
               </span>
-              <span>TODO seconds</span>
-            </div>
+                  <span>{this.state.remaining_time} seconds</span>
+                </div>
+                }
+
             <div>
               <div className="text-lg">
                 <div
@@ -172,10 +226,6 @@ export default class PlayingArea extends React.Component<PlayingAreaProps> {
                 Click for History
               </span>
             </div>
-          </div>
-
-          <div>
-            Bet animation area
           </div>
 
           <div>

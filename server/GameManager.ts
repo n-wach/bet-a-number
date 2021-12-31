@@ -315,6 +315,7 @@ export default class GameManager {
     if(game.current_round.bets.size == game.players.size) {
       // everyone has bet; next round.
       this.next_round(socket, game);
+      this.send_game_update(socket, game);
       this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
     }
 
@@ -453,8 +454,8 @@ export default class GameManager {
     game.move_timer = setInterval(() => {
       console.log("next round triggered from delay");
       this.next_round(socket, game);
-      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
       this.send_game_update(socket, game);
+      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
     }, 15000);
   }
 
@@ -475,8 +476,8 @@ export default class GameManager {
     game.move_timer = setInterval(() => {
       console.log("next round triggered from delay");
       this.next_round(socket, game);
-      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
       this.send_game_update(socket, game);
+      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
     }, 15000);
   }
 }
