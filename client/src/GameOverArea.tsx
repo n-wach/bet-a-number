@@ -8,13 +8,15 @@ type GameOverAreaProps = {
 }
 
 export default class GameOverArea extends React.Component<GameOverAreaProps> {
-  constructor(props: any) {
-    super(props);
-  }
   render() {
     return (
-        <div className="GameOverArea">
-
+        <div className="text-2xl p-10">
+          <p style={ {color: this.props.client.get_this_player()?.color}}>Player {this.props.client.get_this_player()?.id} (You) had {this.props.client.get_this_player()?.total_score} points</p>
+          {
+            this.props.client.get_other_players().map((player) => {
+              return <p style={ {color: player.color}}>Player {player.id} had {player.total_score} points</p>
+            })
+          }
         </div>
     );
   }
