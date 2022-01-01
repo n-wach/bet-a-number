@@ -38,18 +38,6 @@ const colors: Color[] = [
   '#f032e6',
 ]
 
-function newPlayerColor(game: Game): Color {
-  for(let i = 0; i < colors.length; i++) {
-    const color = colors[i];
-    let alreadyUsed = false;
-    game.players.forEach((player) => {
-      if(player.color == color) alreadyUsed = true;
-    });
-    if(!alreadyUsed) return color;
-  }
-  return colors[Math.floor(Math.random() * colors.length)];
-}
-
 function newPointDeck(): CardStack {
   const stack: CardStack = [];
   for(let i = -5; i <= -1; i++) {
@@ -76,16 +64,15 @@ function newGame(): Game {
     players: new Map<PlayerId, Player>(),
     current_round: null,
     previous_rounds: [],
-    remaining_cards: newPointDeck(),
-    move_timer: null,
+    remaining_cards: newPointDeck()
   }
 }
 
-function newPlayer(id: PlayerId, game: Game): Player {
+function newPlayer(id: PlayerId, game: ManagedGame): Player {
   return {
     id: id,
-    gameId: game.id,
-    color: newPlayerColor(game),
+    gameId: game.id(),
+    color: game.newPlayerColor(),
     ready: false,
     remaining_cards: newPlayerDeck(),
     won_rounds: [],
@@ -131,6 +118,206 @@ function getRoundWinner(round: Round): PlayerId | null {
   }
 }
 
+class ManagedGame {
+  static MAX_PLAYERS = 12;
+  // manages a single game
+  private readonly game: Game;
+  private manager: GameManager;
+  private autoplayTimeoutHandle: any;
+  constructor(manager: GameManager, game: Game) {
+    this.manager = manager;
+    this.game = game;
+    this.autoplayTimeoutHandle = null;
+  }
+  sendUpdate() {
+    this.manager.sendGameUpdate(this.game);
+  }
+  addPlayer(player: Player) {
+    this.game.players.set(player.id, player);
+    this.sendUpdate();
+  }
+  deleteGame() {
+    if(this.autoplayTimeoutHandle) {
+      clearInterval(this.autoplayTimeoutHandle);
+    }
+    this.manager.closeGame(this.game);
+    this.manager.sendAvailableGames();
+  }
+  removePlayer(player: Player) {
+    this.game.players.delete(player.id);
+    if(this.game.players.size == 0) {
+      console.log("Deleting game with no players:", this.game.id);
+      this.deleteGame();
+    } else {
+      this.sendUpdate();
+      this.checkPlayerReadiness();
+    }
+  }
+  playerReady(player: Player) {
+    player.ready = true;
+    this.sendUpdate();
+    this.checkPlayerReadiness();
+  }
+  playerUnready(player: Player) {
+    player.ready = false;
+    this.sendUpdate();
+  }
+  playerMakeBet(player: Player, bet: Card) {
+    if(this.game.state != GameState.PLAYING) {
+      return;
+    }
+    if(!this.game.current_round) {
+      return;
+    }
+    let round = this.game.current_round;
+    round.bets.set(player.id, bet);
+
+    if(round.bets.size == this.game.players.size) {
+      // everyone has bet; next round.
+      this.nextRound();
+    } else {
+      this.sendUpdate();
+    }
+  }
+  scheduleAutoplay() {
+    // schedule the next round to happen in 15 seconds.
+    // if all players make bets beforehand, this will be cancelled.
+    this.autoplayTimeoutHandle = setInterval(() => {
+      console.debug("next round triggered from delay");
+      this.nextRound();
+    }, 15000);
+  }
+  clearAutoplay() {
+    if(this.autoplayTimeoutHandle) {
+      clearInterval(this.autoplayTimeoutHandle);
+      this.autoplayTimeoutHandle = null;
+    }
+  }
+  gameOver() {
+    this.game.state = GameState.ENDED;
+    if(this.game.current_round) {
+      this.game.previous_rounds.push(this.game.current_round);
+    }
+    this.game.current_round = null;
+    this.sendUpdate();
+  }
+  nextRound() {
+    // cancel any pending move timer
+    this.clearAutoplay();
+
+    if(this.game.current_round === null) {
+      console.error("Unexpected null current_round");
+      return;
+    }
+
+    // process last round
+    // make random bets for any player that didn't pick one
+    this.game.players.forEach((player) => {
+      let bet = this.game.current_round?.bets.get(player.id);
+      if(bet === undefined) {
+        // if player didn't place a bet: pick a random one.
+        bet = player.remaining_cards[Math.floor(Math.random() * player.remaining_cards.length)];
+        this.game.current_round?.bets.set(player.id, bet);
+      }
+    });
+
+    // reward winner if exists
+    const winnerId = getRoundWinner(this.game.current_round);
+    if(winnerId) {
+      const winner = this.game.players.get(winnerId);
+      if(winner) {
+        this.game.current_round.winner = winner.id;
+        winner.total_score += sum(this.game.current_round.prize_pool);
+        winner.won_rounds.push(this.game.current_round.id);
+      }
+    }
+
+    // remove player bets
+    this.game.players.forEach((player) => {
+      let cards = player.remaining_cards;
+      let bet = this.game.current_round?.bets.get(player.id);
+      // everyone should have made a bet, this just makes typescript happy.
+      // remove bet from player cards
+      cards.splice(cards.indexOf(bet as number), 1);
+    });
+
+    if(this.game.remaining_cards.length == 0) {
+      // no more rounds. game over
+      this.gameOver();
+      return;
+    }
+
+    // prepare next round
+    let next_point = popRandomItem(this.game.remaining_cards);
+    let new_round = {
+      id: this.game.current_round.id + 1,
+      bets: new Map<PlayerId, Card>(),
+      prize_pool: [next_point],
+      winner: null,
+    }
+    if(!winnerId) {
+      // previous points copy over if nobody won
+      new_round.prize_pool.push(...this.game.current_round.prize_pool);
+    }
+
+    this.game.previous_rounds.push(this.game.current_round);
+    this.game.current_round = new_round;
+
+    this.scheduleAutoplay();
+    this.sendUpdate();
+    // client expects the round to be processed/sent before "next round" is sent
+    this.manager.sendNextRound(this);
+  }
+  checkPlayerReadiness() {
+    if(this.game.state != GameState.WAITING) {
+      // only care about games that are waiting
+      return;
+    }
+    let allReady = true;
+    this.game.players.forEach((player) => {
+      if(!player.ready) {
+        allReady = false;
+      }
+    });
+    if(allReady) {
+      this.start();
+    }
+  }
+  start() {
+    this.game.state = GameState.PLAYING;
+
+    const point = popRandomItem(this.game.remaining_cards);
+
+    this.game.current_round = {
+      id: 0,
+      bets: new Map(),
+      prize_pool: [point],
+      winner: null,
+    }
+    this.manager.sendAvailableGames();
+    this.scheduleAutoplay();
+    this.sendUpdate();
+  }
+  joinable(): boolean {
+    return this.game.state == GameState.WAITING &&
+        this.game.players.size <= ManagedGame.MAX_PLAYERS;
+  }
+  id(): string {
+    return this.game.id;
+  }
+  newPlayerColor(): Color {
+    for(let i = 0; i < colors.length; i++) {
+      const color = colors[i];
+      let alreadyUsed = false;
+      this.game.players.forEach((player) => {
+        if(player.color == color) alreadyUsed = true;
+      });
+      if(!alreadyUsed) return color;
+    }
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+}
+
 
 export default class GameManager {
   private io: Server;
@@ -138,8 +325,35 @@ export default class GameManager {
     this.io = io;
   }
 
-  private games: Map<GameId, Game> = new Map<GameId, Game>();
   private players: Map<PlayerId, Player> = new Map<PlayerId, Player>();
+  getPlayer(socket: Socket): Player | null {
+    let player = this.players.get(socket.id);
+    if(!player) {
+      return null;
+    }
+    return player;
+  }
+
+  private managedGames: Map<GameId, ManagedGame> = new Map<GameId, ManagedGame>();
+  getGame(socket: Socket): ManagedGame | null {
+    let player = this.getPlayer(socket);
+    if(!player) {
+      return null;
+    }
+    let game = this.managedGames.get(player.gameId);
+    if(!game) {
+      return null;
+    }
+    return game;
+  }
+
+  inGame(socket: Socket) {
+    let player = this.players.get(socket.id);
+    if(!player) {
+      return false;
+    }
+    return this.managedGames.has(player.gameId);
+  }
   socketConnect(socket: Socket) {
     socket.on("disconnect", this.socketDisconnect.bind(this, socket));
     socket.on("create game", this.socketCreateGame.bind(this, socket));
@@ -150,184 +364,117 @@ export default class GameManager {
     socket.on("make bet", this.socketMakeBet.bind(this, socket));
 
     socket.join("lobby");
-    this.sendAvailableGames(socket, false);
+    this.sendAvailableGames(socket);
   }
   socketDisconnect(socket: Socket) {
-    console.log("disconnect");
-    if(this.players.has(socket.id)) {
+    if(this.inGame(socket)) {
       this.socketLeaveGame(socket);
     }
   }
   socketCreateGame(socket: Socket) {
-    console.log("create game");
     if(this.players.has(socket.id)) {
       console.error("Can't create a game while in another.");
       return;
     }
     const game = newGame();
-    this.games.set(game.id, game);
+    const managedGame = new ManagedGame(this, game);
+    this.managedGames.set(game.id, managedGame);
 
     this.socketJoinGame(socket, game.id);
 
-    this.sendAvailableGames(socket, true);
+    this.sendAvailableGames();
   }
   socketJoinGame(socket: Socket, gameId: GameId) {
-    console.log("join game", gameId);
-    const game = this.games.get(gameId);
+    if(this.inGame(socket)) {
+      console.error("Can't join a game while in another.");
+      return;
+    }
+    const game = this.managedGames.get(gameId);
     if(!game) {
       console.error(`Unknown game: ${gameId}`);
       return;
     }
-    if(game.state != GameState.WAITING) {
-      console.error(`Attempted to join game that wasn't waiting: ${gameId}`);
+    if(!game.joinable()) {
+      console.error(`Attempted to join game that isn't joinable: ${gameId}`);
       return;
     }
 
     socket.leave("lobby");
-    socket.join(game.id);
+    socket.join(game.id());
     const player = newPlayer(socket.id, game);
     this.players.set(player.id, player);
-    game.players.set(player.id, player);
-    this.sendGameUpdate(socket, game);
+    game.addPlayer(player);
   }
   socketLeaveGame(socket: Socket) {
-    console.log("leave game");
-    const player = this.players.get(socket.id);
-    if(!player) {
-      console.error("Can't leave a game when not in one.");
-      return;
-    }
-    const game = this.games.get(player.gameId);
+    const game = this.getGame(socket);
     if(!game) {
       console.error("Player not in a valid game.");
       return;
     }
+    const player = this.getPlayer(socket);
+    if(!player) {
+      console.error("No player found.");
+      return;
+    }
+
+    game.removePlayer(player);
 
     this.players.delete(socket.id);
-    socket.emit("game update", null);
-    socket.leave(game.id);
-
-    game.players.delete(player.id);
-    if(game.players.size === 0) {
-      console.log("Deleting game with no players:", game.id);
-      if(game.move_timer) {
-        clearInterval(game.move_timer);
-      }
-      this.games.delete(game.id);
-      this.sendAvailableGames(socket, true);
-    } else {
-      if(game.state == GameState.WAITING) {
-        // TODO: Refactor to remove duplicated code
-        let all_ready = true;
-        game.players.forEach((player) => {
-          if (!player.ready) {
-            all_ready = false;
-          }
-        });
-        if (all_ready) {
-          this.startPlaying(socket, game);
-          this.sendAvailableGames(socket, true);
-        }
-      }
-      this.sendGameUpdate(socket, game);
-    }
+    socket.emit("game update", null); // reset client
+    socket.leave(game.id());
 
     socket.join("lobby");
-    this.sendAvailableGames(socket, false);
+    this.sendAvailableGames(socket);
   }
   socketReady(socket: Socket) {
-    console.log("ready");
-    const player = this.players.get(socket.id);
-    if(!player) {
-      console.error("Can't ready when not in a game.");
-      return;
-    }
-    const game = this.games.get(player.gameId);
+    const game = this.getGame(socket);
     if(!game) {
       console.error("Player not in a valid game.");
       return;
     }
-    if(game.state != GameState.WAITING) {
-      console.error("Can only ready in waiting state.");
+    const player = this.getPlayer(socket);
+    if(!player) {
+      console.error("No player found.");
       return;
     }
 
-    player.ready = true;
-
-    let all_ready = true;
-    game.players.forEach((player) => {
-      if(!player.ready) {
-        all_ready = false;
-      }
-    });
-    if(all_ready) {
-      this.startPlaying(socket, game);
-      this.sendAvailableGames(socket, true);
-    }
-
-    this.sendGameUpdate(socket, game);
+    game.playerReady(player);
   }
   socketUnready(socket: Socket) {
-    console.log("unready");
-    const player = this.players.get(socket.id);
-    if(!player) {
-      console.error("Can't unready when not in a game.");
-      return;
-    }
-    const game = this.games.get(player.gameId);
+    const game = this.getGame(socket);
     if(!game) {
       console.error("Player not in a valid game.");
       return;
     }
-    if(game.state != GameState.WAITING) {
-      console.error("Can only unready in waiting state.");
+    const player = this.getPlayer(socket);
+    if(!player) {
+      console.error("No player found.");
       return;
     }
 
-    player.ready = false;
-
-    this.sendGameUpdate(socket, game);
+    game.playerUnready(player);
   }
   socketMakeBet(socket: Socket, bet: Card) {
-    console.log("make bet");
-    const player = this.players.get(socket.id);
-    if(!player) {
-      console.error("Can't bet when not in a game.");
-      return;
-    }
-    const game = this.games.get(player.gameId);
+    const game = this.getGame(socket);
     if(!game) {
       console.error("Player not in a valid game.");
       return;
     }
-    if(!game.current_round) {
-      console.error("No current round in game.");
+    const player = this.getPlayer(socket);
+    if(!player) {
+      console.error("No player found.");
       return;
     }
     if(player.remaining_cards.indexOf(bet) == -1) {
       console.error("Can't bet a card player doesn't have.");
       return;
     }
-    game.current_round.bets.set(player.id, bet);
 
-    if(game.current_round.bets.size == game.players.size) {
-      // everyone has bet; next round.
-      this.nextRound(socket, game);
-      this.sendGameUpdate(socket, game);
-      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
-    }
-
-    this.sendGameUpdate(socket, game);
+    game.playerMakeBet(player, bet);
   }
-  sendGameUpdate(socket: Socket, game: Game) {
-    console.log("send game update");
-
+  sendGameUpdate(game: Game) {
     // SocketIO uses JSON, which doesn't support Maps.
     // We must convert to Array of [key, value] manually.
-
-    // Before JSONing, remove move_timer (circular structure).
-    const move_timer = game.move_timer;
-    game.move_timer = null;
 
     // We also want to hide current bets by mapping the bets of other players to -1.
 
@@ -350,7 +497,7 @@ export default class GameManager {
         clean_game.current_round.bets = [];
         game.current_round.bets.forEach((bet, playerId) => {
           let shownBet = -1;
-          if(playerId == socket.id) {
+          if(playerId == player.id) {
             shownBet = bet;
           }
           clean_game.current_round.bets.push([playerId, shownBet]);
@@ -360,123 +507,25 @@ export default class GameManager {
       let playerSocket = this.io.sockets.sockets.get(player.id);
       playerSocket?.emit("game update", clean_game);
     });
-
-    // restore move_timer
-    game.move_timer = move_timer;
   }
-  sendAvailableGames(socket: Socket, broadcastToAllInLobby: boolean = true) {
-    console.log("send available games");
-    const waitingGameIds: GameId[] = [];
-    this.games.forEach((game) => {
-      if(game.state == GameState.WAITING) {
-        waitingGameIds.push(game.id);
+  sendAvailableGames(socket: Socket | null = null) {
+    if(!socket) {
+      // send to everyone in lobby
+      socket = this.io.to("lobby") as unknown as Socket;
+    }
+    const joinableGameIds: GameId[] = [];
+    this.managedGames.forEach((game) => {
+      if(game.joinable()) {
+        joinableGameIds.push(game.id());
       }
     });
-    console.log("waiting games:", waitingGameIds);
-    if(broadcastToAllInLobby) {
-      socket.to("lobby").emit("list games", waitingGameIds);
-    }
-    socket.emit("list games", waitingGameIds);
+    socket.emit("list games", joinableGameIds);
   }
-  nextRound(socket: Socket, game: Game) {
-    // cancel any pending move timer
-    if(game.move_timer) {
-      clearInterval(game.move_timer);
-      game.move_timer = null;
-    }
-
-    if(game.current_round === null) {
-      console.error("Unexpected null current_round");
-      return;
-    }
-
-    // process last round
-    // make random bets for any player that didn't pick one
-    game.players.forEach((player) => {
-      let bet = game.current_round?.bets.get(player.id);
-      if(bet === undefined) {
-        // if player didn't place a bet: pick a random one.
-        bet = player.remaining_cards[Math.floor(Math.random() * player.remaining_cards.length)];
-        game.current_round?.bets.set(player.id, bet);
-      }
-    });
-
-    // reward winner if exists
-    const winnerId = getRoundWinner(game.current_round);
-    if(winnerId) {
-      const winner = game.players.get(winnerId);
-      if(winner) {
-        game.current_round.winner = winner.id;
-        winner.total_score += sum(game.current_round.prize_pool);
-        winner.won_rounds.push(game.current_round.id);
-      }
-    }
-
-    // remove player bets
-    game.players.forEach((player) => {
-      let cards = player.remaining_cards;
-      let bet = game.current_round?.bets.get(player.id);
-      // everyone should have made a bet, this just makes typescript happy.
-      // remove bet from player cards
-      cards.splice(cards.indexOf(bet as number), 1);
-    });
-
-    if(game.remaining_cards.length == 0) {
-      // no more rounds. game over
-      game.state = GameState.ENDED;
-      if(game.current_round) {
-        game.previous_rounds.push(game.current_round);
-      }
-      game.current_round = null;
-      return;
-    }
-
-    // prepare next round
-    let next_point = popRandomItem(game.remaining_cards);
-    let new_round = {
-      id: game.current_round.id + 1,
-      bets: new Map<PlayerId, Card>(),
-      prize_pool: [next_point],
-      winner: null,
-    }
-    if(!winnerId) {
-      // previous points copy over if nobody won
-      new_round.prize_pool.push(...game.current_round.prize_pool);
-    }
-
-    game.previous_rounds.push(game.current_round);
-    game.current_round = new_round;
-
-    // schedule the next round to happen in 15 seconds.
-    // if all players make bets beforehand, this will be cancelled.
-    game.move_timer = setInterval(() => {
-      console.log("next round triggered from delay");
-      this.nextRound(socket, game);
-      this.sendGameUpdate(socket, game);
-      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
-    }, 15000);
+  sendNextRound(game: ManagedGame) {
+    this.io.to(game.id()).emit("next round");
   }
-
-  startPlaying(socket: Socket, game: Game) {
-    game.state = GameState.PLAYING;
-
-    const point = popRandomItem(game.remaining_cards);
-
-    game.current_round = {
-      id: 0,
-      bets: new Map(),
-      prize_pool: [point],
-      winner: null,
-    }
-
-    // schedule the next round to happen in 15 seconds.
-    // if all players make bets beforehand, this will be cancelled.
-    game.move_timer = setInterval(() => {
-      console.log("next round triggered from delay");
-      this.nextRound(socket, game);
-      this.sendGameUpdate(socket, game);
-      this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
-    }, 15000);
+  closeGame(game: Game) {
+    this.managedGames.delete(game.id);
   }
 }
 
