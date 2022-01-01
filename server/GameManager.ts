@@ -26,30 +26,28 @@ function new_game_id(): GameId {
 const colors: Color[] = [
   '#e6194B',
   '#3cb44b',
-  '#ffe119',
   '#4363d8',
   '#f58231',
   '#911eb4',
+  '#469990',
+  '#9A6324',
+  '#800000',
+  '#808000',
+  '#000075',
   '#42d4f4',
   '#f032e6',
-  '#bfef45',
-  '#fabed4',
-  '#469990',
-  '#dcbeff',
-  '#9A6324',
-  '#fffac8',
-  '#800000',
-  '#aaffc3',
-  '#808000',
-  '#ffd8b1',
-  '#000075',
-  '#a9a9a9',
-  '#ffffff',
-  '#000000',
 ]
 
 function new_player_color(game: Game): Color {
-  return colors[game.players.size];
+  for(let i = 0; i < colors.length; i++) {
+    const color = colors[i];
+    let alreadyUsed = false;
+    game.players.forEach((player) => {
+      if(player.color == color) alreadyUsed = true;
+    });
+    if(!alreadyUsed) return color;
+  }
+  return colors[Math.floor(Math.random() * colors.length)];
 }
 
 function new_point_deck(): CardStack {
