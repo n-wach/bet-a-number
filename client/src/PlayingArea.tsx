@@ -157,6 +157,41 @@ class BetAreaIcon extends React.Component<BetAreaProps> {
   }
 }
 
+type RemainingTimeProps = {
+  total: number;
+}
+type RemainingTimeState = {
+  time: number;
+}
+
+class RemainingTime extends React.Component<RemainingTimeProps, RemainingTimeState> {
+  private intervalHandle: number;
+  resetTime() {
+    this.setState({
+      time: this.props.total,
+    });
+  }
+  constructor(props: RemainingTimeProps) {
+    super(props);
+    this.state = {
+      time: this.props.total,
+    }
+    this.intervalHandle = setInterval(() => {
+      let new_time = 0;
+      if(this.state.time > 0) {
+        new_time = this.state.time - 1;
+      }
+      this.setState({time: new_time});
+    }, 1000) as unknown as number;
+  }
+  render() {
+    return <div className="w-80 h-2 rounded-md bg-gray-200">
+      <div className="bg-blue-500 h-full rounded-md duration-200 ease-out" style={{width: `${this.state.time * 100/ this.props.total}%`}}/>
+    </div>
+  }
+}
+
+
 type PlayingAreaProps = {
   client: GameClient;
   game: Game;
@@ -168,7 +203,7 @@ type PlayingAreaState = {
 
 export default class PlayingArea extends React.Component<PlayingAreaProps, PlayingAreaState> {
   private animateHandle: number | null;
-  private timerHandle: number | null;
+  private timer: React.RefObject<RemainingTime>;
   constructor(props: PlayingAreaProps) {
     super(props);
     this.props.client.on_next_round((round) => {
@@ -180,13 +215,7 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
       remaining_time: 14,
     };
     this.animateHandle = null;
-    this.timerHandle = setInterval(() => {
-      let new_time = 0;
-      if(this.state.remaining_time > 0) {
-        new_time = this.state.remaining_time - 1;
-      }
-      this.setState({remaining_time: new_time});
-    }, 1000) as unknown as number;
+    this.timer = React.createRef<RemainingTime>();
   }
   animate_round_advancement(round: Round) {
     console.log("next round", round);
@@ -197,6 +226,7 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
     this.animateHandle = setTimeout(() => {
       this.setState({display_bets: false});
     }, 3000) as unknown as number;
+    this.timer?.current?.resetTime();
   }
   render() {
     return (
@@ -206,6 +236,10 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
                 <PlayerIcon player={player} game={this.props.game}/>
             )}
           </IconShelf>
+
+          <div>
+            <RemainingTime total={14} ref={this.timer}/>
+          </div>
 
           <div className="flex justify-between w-full">
             <div className="flex flex-col">
@@ -230,14 +264,8 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
                         }
                     )}
                   </IconShelf>
-                </div>
-                :
-                <div>
-                  <span>
-                    Remaining Time:
-                  </span>
-                  <span>{this.state.remaining_time} seconds</span>
-                </div>
+                </div> :
+                <div/>
             }
             <div>
               <CardIcon color={"gray-400"} icon={SaveIcon} filled={false} text={"Discard"}
