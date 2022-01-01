@@ -218,7 +218,6 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
     this.timer = React.createRef<RemainingTime>();
   }
   animate_round_advancement(round: Round) {
-    console.log("next round", round);
     if(this.animateHandle !== null) {
       clearTimeout(this.animateHandle);
     }
