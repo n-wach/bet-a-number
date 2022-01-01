@@ -18,7 +18,7 @@ function capitalize(s: string): string {
   return s[0].toUpperCase() + s.slice(1);
 }
 
-function new_game_id(): GameId {
+function newGameId(): GameId {
   return capitalize(randomAdjective()) + capitalize(randomNoun());
 }
 
@@ -38,7 +38,7 @@ const colors: Color[] = [
   '#f032e6',
 ]
 
-function new_player_color(game: Game): Color {
+function newPlayerColor(game: Game): Color {
   for(let i = 0; i < colors.length; i++) {
     const color = colors[i];
     let alreadyUsed = false;
@@ -50,7 +50,7 @@ function new_player_color(game: Game): Color {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
-function new_point_deck(): CardStack {
+function newPointDeck(): CardStack {
   const stack: CardStack = [];
   for(let i = -5; i <= -1; i++) {
     stack.push(i);
@@ -61,7 +61,7 @@ function new_point_deck(): CardStack {
   return stack;
 }
 
-function new_player_deck(): CardStack {
+function newPlayerDeck(): CardStack {
   const stack: CardStack = [];
   for(let i = 1; i <= 15; i++) {
     stack.push(i);
@@ -69,31 +69,31 @@ function new_player_deck(): CardStack {
   return stack;
 }
 
-function new_game(): Game {
+function newGame(): Game {
   return {
-    id: new_game_id(),
+    id: newGameId(),
     state: GameState.WAITING,
     players: new Map<PlayerId, Player>(),
     current_round: null,
     previous_rounds: [],
-    remaining_cards: new_point_deck(),
+    remaining_cards: newPointDeck(),
     move_timer: null,
   }
 }
 
-function new_player(id: PlayerId, game: Game): Player {
+function newPlayer(id: PlayerId, game: Game): Player {
   return {
     id: id,
     gameId: game.id,
-    color: new_player_color(game),
+    color: newPlayerColor(game),
     ready: false,
-    remaining_cards: new_player_deck(),
+    remaining_cards: newPlayerDeck(),
     won_rounds: [],
     total_score: 0,
   }
 }
 
-function get_round_winner(round: Round): PlayerId | null {
+function getRoundWinner(round: Round): PlayerId | null {
   let bets = Array.from(round.bets.entries()); // [playerId, bet]
 
   // put players into buckets by their bets
@@ -140,38 +140,38 @@ export default class GameManager {
 
   private games: Map<GameId, Game> = new Map<GameId, Game>();
   private players: Map<PlayerId, Player> = new Map<PlayerId, Player>();
-  player_connect(socket: Socket) {
-    socket.on("disconnect", this.player_disconnect.bind(this, socket));
-    socket.on("create game", this.player_create_game.bind(this, socket));
-    socket.on("join game", this.player_join_game.bind(this, socket));
-    socket.on("leave game", this.player_leave_game.bind(this, socket));
-    socket.on("ready", this.player_ready.bind(this, socket));
-    socket.on("unready", this.player_unready.bind(this, socket));
-    socket.on("make bet", this.player_make_bet.bind(this, socket));
+  socketConnect(socket: Socket) {
+    socket.on("disconnect", this.socketDisconnect.bind(this, socket));
+    socket.on("create game", this.socketCreateGame.bind(this, socket));
+    socket.on("join game", this.socketJoinGame.bind(this, socket));
+    socket.on("leave game", this.socketLeaveGame.bind(this, socket));
+    socket.on("ready", this.socketReady.bind(this, socket));
+    socket.on("unready", this.socketUnready.bind(this, socket));
+    socket.on("make bet", this.socketMakeBet.bind(this, socket));
 
     socket.join("lobby");
-    this.send_available_games(socket, false);
+    this.sendAvailableGames(socket, false);
   }
-  player_disconnect(socket: Socket) {
+  socketDisconnect(socket: Socket) {
     console.log("disconnect");
     if(this.players.has(socket.id)) {
-      this.player_leave_game(socket);
+      this.socketLeaveGame(socket);
     }
   }
-  player_create_game(socket: Socket) {
+  socketCreateGame(socket: Socket) {
     console.log("create game");
     if(this.players.has(socket.id)) {
       console.error("Can't create a game while in another.");
       return;
     }
-    const game = new_game();
+    const game = newGame();
     this.games.set(game.id, game);
 
-    this.player_join_game(socket, game.id);
+    this.socketJoinGame(socket, game.id);
 
-    this.send_available_games(socket, true);
+    this.sendAvailableGames(socket, true);
   }
-  player_join_game(socket: Socket, gameId: GameId) {
+  socketJoinGame(socket: Socket, gameId: GameId) {
     console.log("join game", gameId);
     const game = this.games.get(gameId);
     if(!game) {
@@ -185,12 +185,12 @@ export default class GameManager {
 
     socket.leave("lobby");
     socket.join(game.id);
-    const player = new_player(socket.id, game);
+    const player = newPlayer(socket.id, game);
     this.players.set(player.id, player);
     game.players.set(player.id, player);
-    this.send_game_update(socket, game);
+    this.sendGameUpdate(socket, game);
   }
-  player_leave_game(socket: Socket) {
+  socketLeaveGame(socket: Socket) {
     console.log("leave game");
     const player = this.players.get(socket.id);
     if(!player) {
@@ -214,7 +214,7 @@ export default class GameManager {
         clearInterval(game.move_timer);
       }
       this.games.delete(game.id);
-      this.send_available_games(socket, true);
+      this.sendAvailableGames(socket, true);
     } else {
       if(game.state == GameState.WAITING) {
         // TODO: Refactor to remove duplicated code
@@ -225,17 +225,17 @@ export default class GameManager {
           }
         });
         if (all_ready) {
-          this.start_playing(socket, game);
-          this.send_available_games(socket, true);
+          this.startPlaying(socket, game);
+          this.sendAvailableGames(socket, true);
         }
       }
-      this.send_game_update(socket, game);
+      this.sendGameUpdate(socket, game);
     }
 
     socket.join("lobby");
-    this.send_available_games(socket, false);
+    this.sendAvailableGames(socket, false);
   }
-  player_ready(socket: Socket) {
+  socketReady(socket: Socket) {
     console.log("ready");
     const player = this.players.get(socket.id);
     if(!player) {
@@ -261,13 +261,13 @@ export default class GameManager {
       }
     });
     if(all_ready) {
-      this.start_playing(socket, game);
-      this.send_available_games(socket, true);
+      this.startPlaying(socket, game);
+      this.sendAvailableGames(socket, true);
     }
 
-    this.send_game_update(socket, game);
+    this.sendGameUpdate(socket, game);
   }
-  player_unready(socket: Socket) {
+  socketUnready(socket: Socket) {
     console.log("unready");
     const player = this.players.get(socket.id);
     if(!player) {
@@ -286,9 +286,9 @@ export default class GameManager {
 
     player.ready = false;
 
-    this.send_game_update(socket, game);
+    this.sendGameUpdate(socket, game);
   }
-  player_make_bet(socket: Socket, bet: Card) {
+  socketMakeBet(socket: Socket, bet: Card) {
     console.log("make bet");
     const player = this.players.get(socket.id);
     if(!player) {
@@ -312,14 +312,14 @@ export default class GameManager {
 
     if(game.current_round.bets.size == game.players.size) {
       // everyone has bet; next round.
-      this.next_round(socket, game);
-      this.send_game_update(socket, game);
+      this.nextRound(socket, game);
+      this.sendGameUpdate(socket, game);
       this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
     }
 
-    this.send_game_update(socket, game);
+    this.sendGameUpdate(socket, game);
   }
-  send_game_update(socket: Socket, game: Game) {
+  sendGameUpdate(socket: Socket, game: Game) {
     console.log("send game update");
 
     // SocketIO uses JSON, which doesn't support Maps.
@@ -364,7 +364,7 @@ export default class GameManager {
     // restore move_timer
     game.move_timer = move_timer;
   }
-  send_available_games(socket: Socket, broadcastToAllInLobby: boolean = true) {
+  sendAvailableGames(socket: Socket, broadcastToAllInLobby: boolean = true) {
     console.log("send available games");
     const waitingGameIds: GameId[] = [];
     this.games.forEach((game) => {
@@ -378,7 +378,7 @@ export default class GameManager {
     }
     socket.emit("list games", waitingGameIds);
   }
-  next_round(socket: Socket, game: Game) {
+  nextRound(socket: Socket, game: Game) {
     // cancel any pending move timer
     if(game.move_timer) {
       clearInterval(game.move_timer);
@@ -402,7 +402,7 @@ export default class GameManager {
     });
 
     // reward winner if exists
-    const winnerId = get_round_winner(game.current_round);
+    const winnerId = getRoundWinner(game.current_round);
     if(winnerId) {
       const winner = game.players.get(winnerId);
       if(winner) {
@@ -451,13 +451,13 @@ export default class GameManager {
     // if all players make bets beforehand, this will be cancelled.
     game.move_timer = setInterval(() => {
       console.log("next round triggered from delay");
-      this.next_round(socket, game);
-      this.send_game_update(socket, game);
+      this.nextRound(socket, game);
+      this.sendGameUpdate(socket, game);
       this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
     }, 15000);
   }
 
-  start_playing(socket: Socket, game: Game) {
+  startPlaying(socket: Socket, game: Game) {
     game.state = GameState.PLAYING;
 
     const point = popRandomItem(game.remaining_cards);
@@ -473,8 +473,8 @@ export default class GameManager {
     // if all players make bets beforehand, this will be cancelled.
     game.move_timer = setInterval(() => {
       console.log("next round triggered from delay");
-      this.next_round(socket, game);
-      this.send_game_update(socket, game);
+      this.nextRound(socket, game);
+      this.sendGameUpdate(socket, game);
       this.io.emit("next round", game.previous_rounds[game.previous_rounds.length - 1]);
     }, 15000);
   }

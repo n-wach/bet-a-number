@@ -26,7 +26,7 @@ app.get('/logo.png', (req, res) => {
 app.use("/static", express.static(path.resolve(__dirname, "../client/build/static")))
 
 io.on("connection", (socket) => {
-  gameManager.player_connect(socket);
+  gameManager.socketConnect(socket);
 });
 
 server.listen(3000, () => {
