@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/outline";
 import {StarIcon} from "@heroicons/react/solid";
 import {CSSTransition, Transition, TransitionGroup} from 'react-transition-group'
+import ReactDOM from "react-dom";
 
 type CardIconProps = {
   color: string;
@@ -24,6 +25,7 @@ type CardIconProps = {
 
 class CardIcon extends React.Component<CardIconProps> {
   public divRef: React.RefObject<HTMLDivElement>;
+  public static CARD_WIDTH_PX: number;
 
   constructor(props: CardIconProps) {
     super(props);
@@ -78,6 +80,13 @@ class CardIcon extends React.Component<CardIconProps> {
     )
   }
 }
+
+
+const pxPerRem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+const cardIconWidthRem = 6;
+const cardBorderAndMarginPx = 8;
+CardIcon.CARD_WIDTH_PX = cardIconWidthRem * pxPerRem + cardBorderAndMarginPx;
+
 
 class IconShelf extends React.Component {
   public divRef: React.RefObject<HTMLDivElement>;
@@ -232,56 +241,104 @@ type BetAnimationAreaProps = {
   thisPlayerId: PlayerId;
 }
 
+type Point = {x: number, y: number};
+
 class BetAnimationArea extends React.Component<BetAnimationAreaProps> {
+  getStartPosition(player: Player, value: Card): Point {
+    const w = CardIcon.CARD_WIDTH_PX;
+    if(player.id == this.props.thisPlayerId) {
+      // from betting area
+      let bettingArea = this.props.betSelectionShelfRef.current!.shelfRef.current!.divRef.current;
+      let r = bettingArea?.getBoundingClientRect()!;
+      return {
+        x: r.x + (value - 1) * w,
+        y: r.y,
+      };
+    } else {
+      // from player ready area
+      let readyArea = this.props.playerReadyShelfRef.current?.divRef.current;
+      let r = readyArea?.getBoundingClientRect()!;
+      return {
+        x: r.x + r.width / 2,
+        y: r.y,
+      }
+    }
+  }
+  getEndPosition() {
+    let r = this.props.discardPileRef.current!.divRef!.current!.getBoundingClientRect()!;
+    return {
+      x: r.x,
+      y: r.y,
+    }
+  }
+  getShelfPosition(index: number) {
+    const w = CardIcon.CARD_WIDTH_PX;
+    let r = this.props.parentDivRef.current?.getBoundingClientRect()!;
+    return {
+      x: r.x + w * index,
+      y: r.y,
+    }
+  }
   render() {
     return (
         <IconShelf>
           {Array.from(this.props.round.bets.entries()).map(([key, value], i) => {
-                let player = this.props.game.players.get(key) as Player;
-                let winner = this.props.round.winner;
-                let entranceRect: DOMRect;
-                if (this.props.thisPlayerId == player.id) {
-                  // from betting area
-                  entranceRect = this.props.betSelectionShelfRef.current!.shelfRef.current!.divRef.current?.getBoundingClientRect()!;
-                } else {
-                  // from player ready area
-                  entranceRect = this.props.playerReadyShelfRef.current?.divRef.current?.getBoundingClientRect()!;
-                }
+                const player = this.props.game.players.get(key) as Player;
+                const winner = this.props.round.winner;
 
-                let normalRect = this.props.parentDivRef.current?.getBoundingClientRect()!;
-                let exitRect = this.props.discardPileRef.current!.divRef!.current!.getBoundingClientRect()!;
-                let startingDx = entranceRect.x - normalRect.x;
-                let startingDy = entranceRect.y - normalRect.y;
-                let endingDx = exitRect.x - normalRect.x;
-                let endingDy = exitRect.y - normalRect.y;
+                let start = this.getStartPosition(player, value);
+                let shelf = this.getShelfPosition(i);
+                let end = this.getEndPosition();
 
-                let transitionStyle = {
-                  entering: {},
-                  entered: {},
-                  exiting: {
-                    transform: `translate(${endingDx}px, ${endingDy}px)`,
-                    opacity: 0
-                  },
-                  exited: {
-                    transform: `translate(${startingDx}px, ${startingDy}px)`,
-                    opacity: 0
-                  },
-                  unmounted: {},
-                };
-                return <Transition in={this.props.visible} key={player.id} timeout={500}>
-                  {(state) => {
-                    return <CardIcon color={player.color} icon={player.id == winner ? StarIcon : undefined}
-                                     filled={player.id == winner} text={value.toString()} clickable={false}
-                                     onClick={undefined} className={undefined} styles={
-                      {
-                        transform: "translate(0, 0)",
-                        opacity: 1,
-                        transition: '500ms ease-in-out',
-                        ...transitionStyle[state],
-                      }
-                    }/>
-                  }
-                  }
+                let icon = <CardIcon
+                    color={player.color} icon={player.id == winner ? StarIcon : undefined}
+                    filled={player.id == winner} text={value.toString()} clickable={false}
+                    onClick={undefined} className={undefined} styles={
+                  { transition: "500ms ease-in-out"}
+                }/>;
+
+                /*
+                    transform: `translate(${start.x - shelf.x}px, ${start.y - shelf.y}px)`,
+                    opacity: 1,
+                    ...transitionStyle[state],
+                 */
+
+                return <Transition in={this.props.visible} key={player.id} timeout={500}
+                                   onEnter={(node: HTMLElement) => {
+                                     console.log("enter");
+                                     node.style.transform = `translate(${start.x - shelf.x}px, ${start.y - shelf.y}px)`;
+                                     node.style.transition = "";
+                                     node.style.opacity = "0";
+                                     setTimeout(() => {
+                                       node.style.transition = "500ms ease-in-out";
+                                       node.style.transform = `translate(0, 0)`;
+                                       node.style.opacity = "1";
+                                     }, 0);
+                                   }}
+                                   onEntering={(node: HTMLElement) => {
+                                     console.log("entering");
+                                     // node.style.transform = `translate(0, 0)`;
+                                     // node.style.opacity = "1";
+                                   }}
+                                   onEntered={(node: HTMLElement) => {
+                                     console.log("entered");
+                                     //node.style.transform = `translate(0, 0)`;
+                                   }}
+                                   onExit={(node: HTMLElement) => {
+                                     console.log("exit");
+                                     node.style.transitionDuration = "500ms";
+                                     node.style.transform = `translate(${end.x - shelf.x}px, ${end.y - shelf.y}px)`;
+                                     node.style.opacity = "0";
+                                   }}
+                                   onExiting={(node: HTMLElement) => {
+                                     console.log("exiting");
+                                     //node.style.transform = `translate(0, 0)`;
+                                   }}
+                                   onExited={(node: HTMLElement) => {
+                                     console.log("exited");
+                                     //node.style.transform = `translate(0, 0)`;
+                                   }}>
+                  { icon }
                 </Transition>
               }
           )}
