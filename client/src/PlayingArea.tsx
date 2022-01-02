@@ -145,15 +145,10 @@ class BetIcon extends React.Component<BetIconProps> {
     let player = this.props.player;
     let roundBets = this.props.game.current_round?.bets || new Map();
     let value = this.props.value;
-    if (value == roundBets.get(player.id)) {
-      // selected bet
-      return <CardIcon color={this.props.player.color} icon={CheckIcon} filled={true}
-                       text={value.toString()} clickable={false} onClick={undefined}
-                       className={undefined} styles={undefined}/>;
-    }
+    let selected = (value == roundBets.get(player.id));
     if (player.remaining_cards.includes(value)) {
       // available bet
-      return <CardIcon color={this.props.player.color} icon={undefined} filled={false}
+      return <CardIcon color={this.props.player.color} icon={selected ? CheckIcon : undefined} filled={selected}
                        text={value.toString()} clickable={true}
                        onClick={() => {
                          this.props.client.make_bet(value)
@@ -297,46 +292,22 @@ class BetAnimationArea extends React.Component<BetAnimationAreaProps> {
                   { transition: "500ms ease-in-out"}
                 }/>;
 
-                /*
-                    transform: `translate(${start.x - shelf.x}px, ${start.y - shelf.y}px)`,
-                    opacity: 1,
-                    ...transitionStyle[state],
-                 */
-
                 return <Transition in={this.props.visible} key={player.id} timeout={500}
                                    onEnter={(node: HTMLElement) => {
-                                     console.log("enter");
                                      node.style.transform = `translate(${start.x - shelf.x}px, ${start.y - shelf.y}px)`;
                                      node.style.transition = "";
                                      node.style.opacity = "0";
+                                     // silly trick to skip animating to starting position
                                      setTimeout(() => {
                                        node.style.transition = "500ms ease-in-out";
                                        node.style.transform = `translate(0, 0)`;
                                        node.style.opacity = "1";
                                      }, 0);
                                    }}
-                                   onEntering={(node: HTMLElement) => {
-                                     console.log("entering");
-                                     // node.style.transform = `translate(0, 0)`;
-                                     // node.style.opacity = "1";
-                                   }}
-                                   onEntered={(node: HTMLElement) => {
-                                     console.log("entered");
-                                     //node.style.transform = `translate(0, 0)`;
-                                   }}
                                    onExit={(node: HTMLElement) => {
-                                     console.log("exit");
                                      node.style.transitionDuration = "500ms";
                                      node.style.transform = `translate(${end.x - shelf.x}px, ${end.y - shelf.y}px)`;
                                      node.style.opacity = "0";
-                                   }}
-                                   onExiting={(node: HTMLElement) => {
-                                     console.log("exiting");
-                                     //node.style.transform = `translate(0, 0)`;
-                                   }}
-                                   onExited={(node: HTMLElement) => {
-                                     console.log("exited");
-                                     //node.style.transform = `translate(0, 0)`;
                                    }}>
                   { icon }
                 </Transition>
@@ -367,7 +338,7 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
   constructor(props: PlayingAreaProps) {
     super(props);
     this.props.client.on_next_round((round) => {
-      this.animate_round_advancement(round);
+      this.animate_round_advancement();
       this.setState({remaining_time: 14});
     });
     this.state = {
@@ -382,8 +353,9 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
     this.playerReadyShelfRef = React.createRef<IconShelf>();
   }
 
-  animate_round_advancement(round: Round) {
+  animate_round_advancement() {
     if (this.animateHandle !== null) {
+      this.setState({display_bets: false});
       clearTimeout(this.animateHandle);
     }
     this.setState({display_bets: true});
