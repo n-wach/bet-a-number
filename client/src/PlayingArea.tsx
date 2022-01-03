@@ -48,7 +48,7 @@ class CardIcon extends React.Component<CardIconProps> {
   }
 
   render() {
-    let classes = ["inline-block", "rounded-md", "w-24", "h-24", "border-4"];
+    let classes = ["inline-block", "rounded-md", "w-16", "h-16", "lg:w-24", "lg:h-24", "border-2", "lg:border-4"];
     let style: CSSProperties = this.props.styles || {};
 
     let colorIsClass = this.props.color.includes("-");
@@ -85,7 +85,7 @@ class CardIcon extends React.Component<CardIconProps> {
       classes.push(...this.props.className.split(' '));
     }
 
-    let iconClasses = ['inline-block', 'h-10', 'w-10'];
+    let iconClasses = ['inline-block', 'h-5', 'w-5', 'lg:h-10', 'lg:w-10'];
 
     return (
         <div onClick={this.props.onClick} className={classes.join(' ')} style={style} ref={this.divRef}>
@@ -100,7 +100,7 @@ class CardIcon extends React.Component<CardIconProps> {
 class IconShelf extends React.Component {
   render() {
     return (
-        <div className="flex flex-wrap gap-2 text-center text-4xl">
+        <div className="flex flex-wrap gap-2 text-center text-[1rem,1rem] lg:text-4xl">
           {this.props.children}
         </div>
     )
@@ -323,20 +323,19 @@ class BetAnimationArea extends React.Component<BetAnimationAreaProps> {
                 const player = this.props.game.players.get(key)!;
                 const winner = this.props.round!.winner;
 
-                let ref = React.createRef<CardIcon>();
-
                 let icon = <CardIcon key={player.id}
                     color={player.color} icon={player.id == winner ? StarIcon : undefined}
                     filled={player.id == winner} text={value.toString()} clickable={false}
-                    onClick={undefined} className={undefined} ref={ref} styles={
+                    onClick={undefined} className={undefined} styles={
                   { transition: `${BetAnimationArea.ANIMATION_DURATION_MS}ms ease-in-out`}
                 }/>;
 
                 return <Transition in={this.props.visible} key={player.id} appear={true}
                                    timeout={BetAnimationArea.ANIMATION_DURATION_MS}
                                    onEnter={(node: HTMLElement) => {
-                                    node.style.opacity = "0";
-                                    node.style.transition = "";
+                                     node.style.visibility = "visible";
+                                     node.style.opacity = "0";
+                                     node.style.transition = "";
                                    }
                                    }
                                    onEntering={(node: HTMLElement) => {
@@ -375,7 +374,11 @@ class BetAnimationArea extends React.Component<BetAnimationAreaProps> {
                                      node.style.transitionDuration = `${BetAnimationArea.ANIMATION_DURATION_MS}ms`;
                                      node.style.transform = `translate(${endDx}px, ${endDy}px)`;
                                      node.style.opacity = "0";
-                                   }}>
+                                   }}
+                                  onExited={(node: HTMLElement) => {
+                                    node.style.visibility = "hidden";
+                                  }
+                                  }>
                   { icon }
                 </Transition>
               }
@@ -439,7 +442,7 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
             <RemainingTime total={14} ref={this.timer}/>
           </div>
 
-          <div className="flex justify-between w-full">
+          <div className="flex flex-col lg:flex-row justify-between w-full">
             <div className="flex flex-col">
               <span>Prize Pool (TODO points):</span>
               <IconShelf>
@@ -460,7 +463,7 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
             </div>
             <div>
               <CardIcon color={"gray-400"} icon={SaveIcon} filled={false} text={"Discard"}
-                        clickable={true} onClick={() => alert("TODO")} className={"text-lg"}
+                        clickable={true} onClick={() => alert("TODO")} className={"lg:text-lg text-xs"}
                         styles={undefined} ref={this.discardPileRef}/>
               <span>
                 Click for History
