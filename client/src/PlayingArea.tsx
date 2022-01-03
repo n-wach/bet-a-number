@@ -9,8 +9,20 @@ import {
   SaveIcon
 } from "@heroicons/react/outline";
 import {StarIcon} from "@heroicons/react/solid";
-import {CSSTransition, Transition, TransitionGroup} from 'react-transition-group'
-import ReactDOM from "react-dom";
+import {Transition} from 'react-transition-group'
+
+function getUntransformedBoundingClientRect(node: HTMLElement): DOMRect {
+  let parentRect = node.offsetParent?.getBoundingClientRect()!;
+  let dx = node.offsetLeft!;
+  let dy = node.offsetTop!;
+
+  let thisRect = node.getBoundingClientRect()!;
+  thisRect.x = parentRect.x + dx;
+  thisRect.y = parentRect.y + dy;
+  // other properties (top, bottom, left, right) update automatically.
+
+  return thisRect;
+}
 
 type CardIconProps = {
   color: string;
@@ -24,12 +36,15 @@ type CardIconProps = {
 }
 
 class CardIcon extends React.Component<CardIconProps> {
-  public divRef: React.RefObject<HTMLDivElement>;
-  public static CARD_WIDTH_PX: number;
+  private readonly divRef: React.RefObject<HTMLDivElement>;
 
   constructor(props: CardIconProps) {
     super(props);
     this.divRef = React.createRef<HTMLDivElement>();
+  }
+
+  getBoundingClientRect(): DOMRect {
+    return this.divRef.current!.getBoundingClientRect();
   }
 
   render() {
@@ -82,21 +97,10 @@ class CardIcon extends React.Component<CardIconProps> {
 }
 
 
-const pxPerRem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-const cardIconWidthRem = 6;
-const cardBorderAndMarginPx = 8;
-CardIcon.CARD_WIDTH_PX = cardIconWidthRem * pxPerRem + cardBorderAndMarginPx;
-
-
 class IconShelf extends React.Component {
-  public divRef: React.RefObject<HTMLDivElement>;
-  constructor(props: any) {
-    super(props);
-    this.divRef = React.createRef<HTMLDivElement>();
-  }
   render() {
     return (
-        <div className="flex flex-wrap gap-2 text-center text-4xl" ref={this.divRef}>
+        <div className="flex flex-wrap gap-2 text-center text-4xl">
           {this.props.children}
         </div>
     )
@@ -109,12 +113,47 @@ type PlayerIconProps = {
 }
 
 class PlayerIcon extends React.Component<PlayerIconProps> {
+  private readonly cardIconRef: React.RefObject<CardIcon>;
+  constructor(props: PlayerIconProps) {
+    super(props);
+    this.cardIconRef = React.createRef();
+  }
+  getCardIcon() {
+    return this.cardIconRef.current;
+  }
   render() {
     const player = this.props.player;
     const madeBet = !!this.props.game.current_round?.bets.has(player.id);
     return <CardIcon color={player.color} icon={madeBet ? CheckIcon : DotsHorizontalIcon}
                      filled={madeBet} className={undefined}
-                     clickable={false} onClick={undefined} text={undefined} styles={undefined}/>;
+                     clickable={false} onClick={undefined} text={undefined} styles={undefined}
+                     ref={this.cardIconRef}/>;
+  }
+}
+
+type PlayerReadyShelfProps = {
+  game: Game,
+  client: GameClient,
+}
+
+class PlayerReadyShelf extends React.Component<PlayerReadyShelfProps> {
+  private cardRefs: Map<PlayerId, React.RefObject<PlayerIcon>>;
+  constructor(props: PlayerReadyShelfProps) {
+    super(props);
+    this.cardRefs = new Map();
+    for(let player of this.props.client.get_other_players()) {
+      this.cardRefs.set(player.id, React.createRef());
+    }
+  }
+  getIconForPlayer(player: Player): PlayerIcon | null {
+    return this.cardRefs.get(player.id)?.current || null;
+  }
+  render() {
+    return <IconShelf>
+      {this.props.client.get_other_players().map((player) =>
+          <PlayerIcon player={player} game={this.props.game} ref={this.cardRefs.get(player.id)}/>
+      )}
+    </IconShelf>
   }
 }
 
@@ -123,13 +162,22 @@ type PrizeIconProps = {
 }
 
 class PrizeIcon extends React.Component<PrizeIconProps> {
+  private readonly cardIconRef: React.RefObject<CardIcon>;
+  constructor(props: PrizeIconProps) {
+    super(props);
+    this.cardIconRef = React.createRef();
+  }
+  getCardIcon() {
+    return this.cardIconRef.current;
+  }
   render() {
     let positive = this.props.value > 0;
     return <CardIcon color={positive ? "amber-400" : "indigo-600"}
                      icon={positive ? EmojiHappyIcon : EmojiSadIcon}
                      filled={false} className={undefined}
                      clickable={false} onClick={undefined}
-                     text={this.props.value.toString()} styles={undefined}/>;
+                     text={this.props.value.toString()} styles={undefined}
+                     ref={this.cardIconRef}/>;
   }
 }
 
@@ -141,6 +189,14 @@ type BetIconProps = {
 }
 
 class BetIcon extends React.Component<BetIconProps> {
+  private readonly cardIconRef: React.RefObject<CardIcon>;
+  constructor(props: BetIconProps) {
+    super(props);
+    this.cardIconRef = React.createRef();
+  }
+  getCardIcon() {
+    return this.cardIconRef.current;
+  }
   render() {
     let player = this.props.player;
     let roundBets = this.props.game.current_round?.bets || new Map();
@@ -153,34 +209,41 @@ class BetIcon extends React.Component<BetIconProps> {
                        onClick={() => {
                          this.props.client.make_bet(value)
                        }}
-                       className={undefined} styles={undefined}/>;
+                       className={undefined} styles={undefined}
+                       ref={this.cardIconRef}/>;
     } else {
       // previously made bet
       return <CardIcon color={"gray-400"} icon={CheckIcon} filled={false} text={value.toString()}
-                       clickable={false} onClick={undefined} className={undefined} styles={undefined}/>
+                       clickable={false} onClick={undefined} className={undefined} styles={undefined}
+                       ref={this.cardIconRef}/>;
     }
   }
 }
 
-type BetAreaProps = {
+type BetSelectionShelfProps = {
   game: Game;
   player: Player;
   client: GameClient;
 }
 
-class BetSelectionShelf extends React.Component<BetAreaProps> {
+class BetSelectionShelf extends React.Component<BetSelectionShelfProps> {
   static BETS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-  public shelfRef: React.RefObject<IconShelf>;
-  constructor(props: BetAreaProps) {
+  private cardRefs: Map<Card, React.RefObject<BetIcon>>;
+  constructor(props: BetSelectionShelfProps) {
     super(props);
-    this.shelfRef = React.createRef();
+    this.cardRefs = new Map();
+    for(let i of BetSelectionShelf.BETS) {
+      this.cardRefs.set(i, React.createRef());
+    }
   }
-
+  getSpecificBetIcon(value: Card): BetIcon | null {
+    return this.cardRefs.get(value)?.current || null;
+  }
   render() {
     return (
-        <IconShelf ref={this.shelfRef}>
+        <IconShelf>
           {BetSelectionShelf.BETS.map((n) =>
-              <BetIcon value={n} client={this.props.client} game={this.props.game} player={this.props.player}/>
+              <BetIcon value={n} client={this.props.client} game={this.props.game} player={this.props.player} ref={this.cardRefs.get(n)!}/>
           )}
         </IconShelf>
     )
@@ -227,86 +290,90 @@ class RemainingTime extends React.Component<RemainingTimeProps, RemainingTimeSta
 
 type BetAnimationAreaProps = {
   discardPileRef: React.RefObject<CardIcon>;
-  parentDivRef: React.RefObject<HTMLDivElement>;
   betSelectionShelfRef: React.RefObject<BetSelectionShelf>;
-  playerReadyShelfRef: React.RefObject<IconShelf>;
+  playerReadyShelfRef: React.RefObject<PlayerReadyShelf>;
   visible: boolean;
-  round: Round;
+  round: Round | null;
   game: Game;
   thisPlayerId: PlayerId;
 }
 
-type Point = {x: number, y: number};
-
 class BetAnimationArea extends React.Component<BetAnimationAreaProps> {
-  getStartPosition(player: Player, value: Card): Point {
-    const w = CardIcon.CARD_WIDTH_PX;
+  static ANIMATION_DURATION_MS = 500;
+  getStartPosition(player: Player, value: Card): DOMRect | null {
+    let icon: CardIcon | null | undefined;
     if(player.id == this.props.thisPlayerId) {
       // from betting area
-      let bettingArea = this.props.betSelectionShelfRef.current!.shelfRef.current!.divRef.current;
-      let r = bettingArea?.getBoundingClientRect()!;
-      return {
-        x: r.x + (value - 1) * w,
-        y: r.y,
-      };
+      icon = this.props.betSelectionShelfRef.current?.getSpecificBetIcon(value)?.getCardIcon();
     } else {
       // from player ready area
-      let readyArea = this.props.playerReadyShelfRef.current?.divRef.current;
-      let r = readyArea?.getBoundingClientRect()!;
-      return {
-        x: r.x + r.width / 2,
-        y: r.y,
-      }
+      icon = this.props.playerReadyShelfRef.current?.getIconForPlayer(player)?.getCardIcon();
     }
+    return icon?.getBoundingClientRect() || null;
   }
-  getEndPosition() {
-    let r = this.props.discardPileRef.current!.divRef!.current!.getBoundingClientRect()!;
-    return {
-      x: r.x,
-      y: r.y,
-    }
-  }
-  getShelfPosition(index: number) {
-    const w = CardIcon.CARD_WIDTH_PX;
-    let r = this.props.parentDivRef.current?.getBoundingClientRect()!;
-    return {
-      x: r.x + w * index,
-      y: r.y,
-    }
+  getEndPosition(): DOMRect | null {
+    let icon = this.props.discardPileRef.current;
+    return icon?.getBoundingClientRect() || null;
   }
   render() {
     return (
         <IconShelf>
-          {Array.from(this.props.round.bets.entries()).map(([key, value], i) => {
-                const player = this.props.game.players.get(key) as Player;
-                const winner = this.props.round.winner;
+          {this.props.round &&
+              Array.from(this.props.round.bets.entries()).map(([key, value], i) => {
+                const player = this.props.game.players.get(key)!;
+                const winner = this.props.round!.winner;
 
-                let start = this.getStartPosition(player, value);
-                let shelf = this.getShelfPosition(i);
-                let end = this.getEndPosition();
+                let ref = React.createRef<CardIcon>();
 
-                let icon = <CardIcon
+                let icon = <CardIcon key={player.id}
                     color={player.color} icon={player.id == winner ? StarIcon : undefined}
                     filled={player.id == winner} text={value.toString()} clickable={false}
-                    onClick={undefined} className={undefined} styles={
-                  { transition: "500ms ease-in-out"}
+                    onClick={undefined} className={undefined} ref={ref} styles={
+                  { transition: `${BetAnimationArea.ANIMATION_DURATION_MS}ms ease-in-out`}
                 }/>;
 
-                return <Transition in={this.props.visible} key={player.id} timeout={500}
+                return <Transition in={this.props.visible} key={player.id} appear={true}
+                                   timeout={BetAnimationArea.ANIMATION_DURATION_MS}
                                    onEnter={(node: HTMLElement) => {
-                                     node.style.transform = `translate(${start.x - shelf.x}px, ${start.y - shelf.y}px)`;
-                                     node.style.transition = "";
-                                     node.style.opacity = "0";
-                                     // silly trick to skip animating to starting position
+                                    node.style.opacity = "0";
+                                    node.style.transition = "";
+                                   }
+                                   }
+                                   onEntering={(node: HTMLElement) => {
+                                     // wait for component to be mounted
                                      setTimeout(() => {
-                                       node.style.transition = "500ms ease-in-out";
-                                       node.style.transform = `translate(0, 0)`;
-                                       node.style.opacity = "1";
+                                       let start = this.getStartPosition(player, value);
+                                       let pos = getUntransformedBoundingClientRect(node);
+
+                                       let startDx = 0;
+                                       let startDy = 0;
+                                       if(start && pos) {
+                                         startDx = start.x - pos.x;
+                                         startDy = start.y - pos.y;
+                                       }
+
+                                       node.style.transform = `translate(${startDx}px, ${startDy}px)`;
+                                       // silly trick to skip animating to starting position
+                                       setTimeout(() => {
+                                         node.style.transition = `${BetAnimationArea.ANIMATION_DURATION_MS}ms ease-in-out`;
+                                         node.style.transform = `translate(0, 0)`;
+                                         node.style.opacity = "1";
+                                       }, 50);
                                      }, 0);
                                    }}
                                    onExit={(node: HTMLElement) => {
-                                     node.style.transitionDuration = "500ms";
-                                     node.style.transform = `translate(${end.x - shelf.x}px, ${end.y - shelf.y}px)`;
+                                     let end = this.getEndPosition();
+                                     let pos = getUntransformedBoundingClientRect(node);
+
+                                     let endDx = 0;
+                                     let endDy = 0;
+                                     if(end && pos) {
+                                       endDx = end.x - pos.x;
+                                       endDy = end.y - pos.y;
+                                     }
+
+                                     node.style.transitionDuration = `${BetAnimationArea.ANIMATION_DURATION_MS}ms`;
+                                     node.style.transform = `translate(${endDx}px, ${endDy}px)`;
                                      node.style.opacity = "0";
                                    }}>
                   { icon }
@@ -329,11 +396,10 @@ type PlayingAreaState = {
 
 export default class PlayingArea extends React.Component<PlayingAreaProps, PlayingAreaState> {
   private animateHandle: number | null;
-  private timer: React.RefObject<RemainingTime>;
-  private discardPileRef: RefObject<CardIcon>;
-  private bettingAnimationAreaParentDivRef: RefObject<HTMLDivElement>;
-  private betSelectionShelfRef: RefObject<BetSelectionShelf>;
-  private playerReadyShelfRef: RefObject<IconShelf>;
+  private readonly timer: React.RefObject<RemainingTime>;
+  private readonly discardPileRef: RefObject<CardIcon>;
+  private readonly betSelectionShelfRef: RefObject<BetSelectionShelf>;
+  private readonly playerReadyShelfRef: RefObject<PlayerReadyShelf>;
 
   constructor(props: PlayingAreaProps) {
     super(props);
@@ -346,11 +412,10 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
       remaining_time: 14,
     };
     this.animateHandle = null;
-    this.timer = React.createRef<RemainingTime>();
-    this.discardPileRef = React.createRef<CardIcon>();
-    this.bettingAnimationAreaParentDivRef = React.createRef<HTMLDivElement>();
-    this.betSelectionShelfRef = React.createRef<BetSelectionShelf>();
-    this.playerReadyShelfRef = React.createRef<IconShelf>();
+    this.timer = React.createRef();
+    this.discardPileRef = React.createRef();
+    this.betSelectionShelfRef = React.createRef();
+    this.playerReadyShelfRef = React.createRef();
   }
 
   animate_round_advancement() {
@@ -361,18 +426,14 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
     this.setState({display_bets: true});
     this.animateHandle = setTimeout(() => {
       this.setState({display_bets: false});
-    }, 3000) as unknown as number;
+    }, 5000) as unknown as number;
     this.timer?.current?.resetTime();
   }
 
   render() {
     return (
         <div className="flex flex-col items-center justify-between text-center min-h-[70vh]">
-          <IconShelf ref={this.playerReadyShelfRef}>
-            {this.props.client.get_other_players().map((player) =>
-                <PlayerIcon player={player} game={this.props.game}/>
-            )}
-          </IconShelf>
+          <PlayerReadyShelf game={this.props.game} client={this.props.client} ref={this.playerReadyShelfRef}/>
 
           <div>
             <RemainingTime total={14} ref={this.timer}/>
@@ -388,18 +449,14 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
               </IconShelf>
               <span>Highest unique bet takes.</span>
             </div>
-            <div ref={this.bettingAnimationAreaParentDivRef}>
-              {
-                  this.props.game.previous_rounds.length > 0 &&
-                  <BetAnimationArea visible={this.state.display_bets}
-                                    round={this.props.game.previous_rounds.at(-1) as Round}
-                                    game={this.props.game}
-                                    thisPlayerId={this.props.client.get_this_player()!.id}
-                                    discardPileRef={this.discardPileRef}
-                                    parentDivRef={this.bettingAnimationAreaParentDivRef}
-                                    betSelectionShelfRef={this.betSelectionShelfRef}
-                                    playerReadyShelfRef={this.playerReadyShelfRef} />
-              }
+            <div>
+              <BetAnimationArea visible={this.state.display_bets}
+                                round={this.props.game.previous_rounds.at(-1) || null}
+                                game={this.props.game}
+                                thisPlayerId={this.props.client.get_this_player()!.id}
+                                discardPileRef={this.discardPileRef}
+                                betSelectionShelfRef={this.betSelectionShelfRef}
+                                playerReadyShelfRef={this.playerReadyShelfRef} />
             </div>
             <div>
               <CardIcon color={"gray-400"} icon={SaveIcon} filled={false} text={"Discard"}
