@@ -433,6 +433,14 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
     this.timer?.current?.resetTime();
   }
 
+  last_round(): Round | null {
+    const len = this.props.game.previous_rounds.length;
+    if(len < 1) {
+      return null;
+    }
+    return this.props.game.previous_rounds[len - 1];
+  }
+
   render() {
     return (
         <div className="flex flex-col items-center justify-between text-center min-h-[70vh]">
@@ -454,7 +462,7 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
             </div>
             <div>
               <BetAnimationArea visible={this.state.display_bets}
-                                round={this.props.game.previous_rounds.at(-1) || null}
+                                round={this.last_round()}
                                 game={this.props.game}
                                 thisPlayerId={this.props.client.get_this_player()!.id}
                                 discardPileRef={this.discardPileRef}
