@@ -290,15 +290,15 @@ class ManagedGame {
       new_round.prize_pool.push(...this.game.current_round.prize_pool);
     }
 
+    this.game.previous_rounds.push(this.game.current_round);
+    this.game.current_round = new_round;
+
     // all robots make random bets
     this.game.players.forEach((player) => {
       if(!player.in_game) {
         this.makeRandomBet(player);
       }
     });
-
-    this.game.previous_rounds.push(this.game.current_round);
-    this.game.current_round = new_round;
 
     this.scheduleAutoplay();
     this.sendUpdate();

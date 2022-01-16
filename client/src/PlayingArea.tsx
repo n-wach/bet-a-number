@@ -5,7 +5,7 @@ import {
   CheckIcon,
   EmojiHappyIcon,
   EmojiSadIcon,
-  SaveIcon, ChatAltIcon
+  SaveIcon, ChatAltIcon, DotsHorizontalIcon
 } from "@heroicons/react/outline";
 import {
   StarIcon,
@@ -130,7 +130,7 @@ class PlayerIcon extends React.Component<PlayerIconProps> {
     const player = this.props.player;
     const madeBet = !!this.props.game.current_round?.bets.has(player.id);
     const playerIcon = player.in_game ? UserIcon : DesktopComputerIcon;
-    const readyIcon = madeBet ? CheckIcon : ChatAltIcon;
+    const readyIcon = madeBet ? CheckIcon : DotsHorizontalIcon;
     return <CardIcon color={player.color} icon={[readyIcon, playerIcon]}
                      filled={madeBet} className={undefined}
                      clickable={false} onClick={undefined}

@@ -37,11 +37,20 @@ export default class GameClient {
       if(game !== null) {
         game.players = new Map(game.players);
         for(let round of game.previous_rounds) {
-          round.bets = new Map(round.bets);
+          let bets = new Map(round.bets);
+          round.bets = new Map();
+          game.players.forEach((player: Player) => {
+            if(bets.has(player.id)) round.bets.set(player.id, bets.get(player.id));
+          });
         }
         if(game.current_round) {
-          game.current_round.bets = new Map(game.current_round.bets);
+          let bets = new Map(game.current_round.bets);
+          game.current_round.bets = new Map();
+          game.players.forEach((player: Player) => {
+            if(bets.has(player.id)) game.current_round.bets.set(player.id, bets.get(player.id));
+          })
         }
+        console.log(game);
       }
       this.game = game;
       if(this.game_update_callback !== null) {
