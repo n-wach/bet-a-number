@@ -31,12 +31,12 @@ class HowToPlay extends React.Component<HowToPlayProps> {
             </p>
             <p>
               In each round, players must pick a bid to place for the current prize points.
-              Once all players have placed a bid, the bids are revealed. If you don't pick a
-              bid within 30 seconds, a random bet will be made for you.
+              If you don't pick a bid within 30 seconds, a random one will be made for you.
+              Once all players have placed a bid, the bids are revealed.
             </p>
             <p>
               If the prize is positive, the player with the highest unique bid takes the points. If negative, the player
-              with the lowest unique bid takes. If there are no unique bids (everyone ties), the bids are
+              with the lowest unique bid takes. If there are no unique bids (for instance, if everyone ties), the bids are
               discarded as usual, and an additional prize card is revealed. In the next round,
               players are betting for the combined value of both cards.
             </p>
