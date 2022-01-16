@@ -1,6 +1,6 @@
 import React from 'react';
 import GameClient from "./GameClient";
-import {GameId} from "./shared";
+import {AvailableGame, GameId} from "./shared";
 
 type HowToPlayProps = {
   on_close: () => any;
@@ -58,7 +58,7 @@ class HowToPlay extends React.Component<HowToPlayProps> {
 
 type LobbyProps = {
   client: GameClient;
-  games: GameId[];
+  games: AvailableGame[];
 }
 
 type LobbyState = {
@@ -114,13 +114,13 @@ export default class Lobby extends React.Component<LobbyProps, LobbyState> {
                   </thead>
                   <tbody className="text-left bg-white divide-y divide-gray-200">
 
-                  {this.props.games.map((gameId) =>
+                  {this.props.games.map((game) =>
                       <tr>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-semibold">{gameId}</span>
+                          <span className="font-semibold">{game.id}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          TODO
+                          { game.player_count } { game.player_count > 1 ? "players" : "player"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
@@ -128,14 +128,14 @@ export default class Lobby extends React.Component<LobbyProps, LobbyState> {
                         </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right font-medium">
-                          <a onClick={() => this.props.client.join_game(gameId)}
+                          <a onClick={() => this.props.client.join_game(game.id)}
                              className="inline-flex items-center justify-center px-10 py-2 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 shadow">
                             Join
                           </a>
                         </td>
                       </tr>
                   )}
-                  {this.props.games.length == 0 &&
+                  {this.props.games.length === 0 &&
                       <td colSpan={4} className="w-full h-full text-center p-20 bg-gray-50">
                         There are no games waiting for players.
                       </td>

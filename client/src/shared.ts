@@ -38,3 +38,9 @@ export type Game = {
   previous_rounds: Round[];
   remaining_cards: CardStack;
 }
+
+export type AvailableGame = {
+  id: GameId;
+  state: GameState;
+  player_count: number;
+}

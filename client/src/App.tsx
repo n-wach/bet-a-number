@@ -1,12 +1,12 @@
 import React from 'react';
 import GameClient from "./GameClient";
-import {Game, GameId} from "./shared";
+import {AvailableGame, Game, GameId} from "./shared";
 import Lobby from "./Lobby";
 import GameView from "./GameView";
 
 type AppState = {
   game: Game | null,
-  available_games: GameId[],
+  available_games: AvailableGame[],
 }
 
 export default class App extends React.Component<any, AppState> {

@@ -1,4 +1,15 @@
-import {Card, CardStack, Color, Game, GameId, GameState, Player, PlayerId, Round} from "../client/src/shared";
+import {
+  AvailableGame,
+  Card,
+  CardStack,
+  Color,
+  Game,
+  GameId,
+  GameState,
+  Player,
+  PlayerId,
+  Round
+} from "../client/src/shared";
 import {Server, Socket} from "socket.io";
 import {randomAdjective, randomNoun} from "./namer";
 
@@ -316,6 +327,14 @@ class ManagedGame {
     }
     return colors[Math.floor(Math.random() * colors.length)];
   }
+
+  state() {
+    return this.game.state;
+  }
+
+  numPlayers() {
+    return this.game.players.size;
+  }
 }
 
 
@@ -404,6 +423,8 @@ export default class GameManager {
     const player = newPlayer(socket.id, game);
     this.players.set(player.id, player);
     game.addPlayer(player);
+
+    this.sendAvailableGames();
   }
   socketLeaveGame(socket: Socket) {
     const game = this.getGame(socket);
@@ -424,7 +445,9 @@ export default class GameManager {
     socket.leave(game.id());
 
     socket.join("lobby");
-    this.sendAvailableGames(socket);
+
+    // player count in waiting game may have changed
+    this.sendAvailableGames();
   }
   socketReady(socket: Socket) {
     const game = this.getGame(socket);
@@ -513,13 +536,18 @@ export default class GameManager {
       // send to everyone in lobby
       socket = this.io.to("lobby") as unknown as Socket;
     }
-    const joinableGameIds: GameId[] = [];
+    const availableGames: AvailableGame[] = [];
     this.managedGames.forEach((game) => {
       if(game.joinable()) {
-        joinableGameIds.push(game.id());
+        availableGames.push(
+            {
+              id: game.id(),
+              state: game.state(),
+              player_count: game.numPlayers()
+            });
       }
     });
-    socket.emit("list games", joinableGameIds);
+    socket.emit("list games", availableGames);
   }
   sendNextRound(game: ManagedGame) {
     this.io.to(game.id()).emit("next round");

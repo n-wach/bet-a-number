@@ -1,13 +1,13 @@
 import {io, Socket} from "socket.io-client";
-import {Card, Game, GameId, Player, Round} from "./shared";
+import {AvailableGame, Card, Game, GameId, Player, Round} from "./shared";
 
-type AvailableGamesChangeCallback = (games: GameId[]) => any;
+type AvailableGamesChangeCallback = (games: AvailableGame[]) => any;
 type GameUpdateCallback = (game: Game | null) => any;
 type NextRoundCallback = (last_round: Round) => any;
 
 export default class GameClient {
   private socket: Socket;
-  private available_games: GameId[];
+  private available_games: AvailableGame[];
   private available_games_change_callback: AvailableGamesChangeCallback | null;
   private game: Game | null;
   private game_update_callback: GameUpdateCallback | null;
