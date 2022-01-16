@@ -5,11 +5,13 @@ import {
   CheckIcon,
   EmojiHappyIcon,
   EmojiSadIcon,
-  SaveIcon,
+  SaveIcon, ChatAltIcon
+} from "@heroicons/react/outline";
+import {
+  StarIcon,
   UserIcon,
   DesktopComputerIcon
-} from "@heroicons/react/outline";
-import {StarIcon} from "@heroicons/react/solid";
+} from "@heroicons/react/solid";
 import {Transition} from 'react-transition-group'
 
 function getUntransformedBoundingClientRect(node: HTMLElement): DOMRect {
@@ -27,7 +29,7 @@ function getUntransformedBoundingClientRect(node: HTMLElement): DOMRect {
 
 type CardIconProps = {
   color: string;
-  icon: ((props: React.ComponentProps<'svg'>) => JSX.Element) | undefined;
+  icon: ((props: React.ComponentProps<'svg'>) => JSX.Element) | ((props: React.ComponentProps<'svg'>) => JSX.Element)[] | undefined;
   filled: boolean;
   text: string | undefined;
   className: string | undefined; // custom styling
@@ -86,12 +88,14 @@ class CardIcon extends React.Component<CardIconProps> {
       classes.push(...this.props.className.split(' '));
     }
 
-    let iconClasses = ['inline-block', 'h-5', 'w-5', 'lg:h-10', 'lg:w-10'];
+    let iconClasses = ['inline-block', 'h-5', 'w-5', 'lg:h-10', 'lg:w-10', 'mx-2'];
 
     return (
         <div onClick={this.props.onClick} className={classes.join(' ')} style={style} ref={this.divRef}>
           {this.props.text && <p>{this.props.text}</p>}
-          {this.props.icon && this.props.icon({className: iconClasses.join(' ')})}
+          {this.props.icon && (Array.isArray(this.props.icon) ?
+              this.props.icon.map((icon) => icon({className: iconClasses.join(' ')})) :
+              this.props.icon({className: iconClasses.join(' ')}))}
         </div>
     )
   }
@@ -125,18 +129,12 @@ class PlayerIcon extends React.Component<PlayerIconProps> {
   render() {
     const player = this.props.player;
     const madeBet = !!this.props.game.current_round?.bets.has(player.id);
-    let icon;
-    if(!player.in_game) {
-      icon = DesktopComputerIcon;
-    } else if(madeBet) {
-      icon = CheckIcon;
-    } else {
-      icon = UserIcon;
-    }
-    return <CardIcon color={player.color} icon={icon}
-                     filled={madeBet} className={undefined}
+    const playerIcon = player.in_game ? UserIcon : DesktopComputerIcon;
+    const readyIcon = (madeBet || !player.in_game) ? CheckIcon : ChatAltIcon;
+    return <CardIcon color={player.color} icon={[readyIcon, playerIcon]}
+                     filled={madeBet || !player.in_game} className={undefined}
                      clickable={false} onClick={undefined}
-                     text={player.total_score.toString()}
+                     text={undefined}
                      styles={undefined} ref={this.cardIconRef}/>;
   }
 }
