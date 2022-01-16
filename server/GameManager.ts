@@ -169,6 +169,7 @@ class ManagedGame {
     }
     // game playing or over, we need to preserve game.players
     player.in_game = false;
+    this.makeRandomBet(player);
     let none_in_game = true;
     this.game.players.forEach((p => {
       if(p.in_game) none_in_game = false;
@@ -228,6 +229,11 @@ class ManagedGame {
     this.game.current_round = null;
     this.sendUpdate();
   }
+  makeRandomBet(player: Player) {
+    // if player didn't place a bet: pick a random one.
+    let bet = player.remaining_cards[Math.floor(Math.random() * player.remaining_cards.length)];
+    this.game.current_round?.bets.set(player.id, bet);
+  }
   nextRound() {
     // cancel any pending move timer
     this.clearAutoplay();
@@ -240,11 +246,8 @@ class ManagedGame {
     // process last round
     // make random bets for any player that didn't pick one
     this.game.players.forEach((player) => {
-      let bet = this.game.current_round?.bets.get(player.id);
-      if(bet === undefined) {
-        // if player didn't place a bet: pick a random one.
-        bet = player.remaining_cards[Math.floor(Math.random() * player.remaining_cards.length)];
-        this.game.current_round?.bets.set(player.id, bet);
+      if(!this.game.current_round?.bets.has(player.id)) {
+        this.makeRandomBet(player);
       }
     });
 
@@ -286,6 +289,13 @@ class ManagedGame {
       // previous points copy over if nobody won
       new_round.prize_pool.push(...this.game.current_round.prize_pool);
     }
+
+    // all robots make random bets
+    this.game.players.forEach((player) => {
+      if(!player.in_game) {
+        this.makeRandomBet(player);
+      }
+    });
 
     this.game.previous_rounds.push(this.game.current_round);
     this.game.current_round = new_round;
