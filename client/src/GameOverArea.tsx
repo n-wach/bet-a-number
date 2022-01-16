@@ -1,6 +1,7 @@
 import GameClient from "./GameClient";
 import {Game, GameId} from "./shared";
 import React from "react";
+import RoundHistory from "./RoundHistory";
 
 type GameOverAreaProps = {
   client: GameClient;
@@ -17,6 +18,7 @@ export default class GameOverArea extends React.Component<GameOverAreaProps> {
               return <p style={ {color: player.color}}>Player {player.id} had {player.total_score} points</p>
             })
           }
+          <RoundHistory game={this.props.game}/>
         </div>
     );
   }

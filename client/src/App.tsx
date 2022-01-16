@@ -25,8 +25,8 @@ export default class App extends React.Component<any, AppState> {
   }
   render() {
     return (
-        <div className="py-10">
-          <h1 className="text-4xl text-center font font-extrabold tracking-tight text-gray-900 sm:text-6xl">
+        <div className="py-10 text-gray-900">
+          <h1 className="text-4xl text-center font font-extrabold tracking-tight sm:text-6xl">
             Bet a Number!
           </h1>
           {this.state.game ?
