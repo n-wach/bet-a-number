@@ -18,8 +18,7 @@ After all 15 rounds, the player with the most prize points wins.
 2. Better player score UI
 3. Clean up/improve UI (specifically mobile)
 4. Round history (both under history button, and on game end screen)
-5. How to play dialog
-6. Game settings (move timer enable/duration, deck)
-7. Player customization (color, name)
+5. Game settings (move timer enable/duration, deck)
+6. Player customization (color, name)
 
 
