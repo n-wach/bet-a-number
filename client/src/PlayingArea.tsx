@@ -3,10 +3,11 @@ import {Card, Game, Player, PlayerId, Round} from "./shared";
 import React, {CSSProperties, RefObject} from "react";
 import {
   CheckIcon,
-  DotsHorizontalIcon,
   EmojiHappyIcon,
   EmojiSadIcon,
-  SaveIcon
+  SaveIcon,
+  UserIcon,
+  DesktopComputerIcon
 } from "@heroicons/react/outline";
 import {StarIcon} from "@heroicons/react/solid";
 import {Transition} from 'react-transition-group'
@@ -124,10 +125,19 @@ class PlayerIcon extends React.Component<PlayerIconProps> {
   render() {
     const player = this.props.player;
     const madeBet = !!this.props.game.current_round?.bets.has(player.id);
-    return <CardIcon color={player.color} icon={madeBet ? CheckIcon : DotsHorizontalIcon}
+    let icon;
+    if(!player.in_game) {
+      icon = DesktopComputerIcon;
+    } else if(madeBet) {
+      icon = CheckIcon;
+    } else {
+      icon = UserIcon;
+    }
+    return <CardIcon color={player.color} icon={icon}
                      filled={madeBet} className={undefined}
-                     clickable={false} onClick={undefined} text={undefined} styles={undefined}
-                     ref={this.cardIconRef}/>;
+                     clickable={false} onClick={undefined}
+                     text={player.total_score.toString()}
+                     styles={undefined} ref={this.cardIconRef}/>;
   }
 }
 

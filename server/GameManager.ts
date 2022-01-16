@@ -88,6 +88,7 @@ function newPlayer(id: PlayerId, game: ManagedGame): Player {
     remaining_cards: newPlayerDeck(),
     won_rounds: [],
     total_score: 0,
+    in_game: true,
   }
 }
 
@@ -155,13 +156,28 @@ class ManagedGame {
     this.manager.sendAvailableGames();
   }
   removePlayer(player: Player) {
-    this.game.players.delete(player.id);
-    if(this.game.players.size == 0) {
+    if(this.game.state == GameState.WAITING) {
+      this.game.players.delete(player.id);
+      if (this.game.players.size == 0) {
+        console.log("Deleting waiting game with no players:", this.game.id);
+        this.deleteGame();
+      } else {
+        this.sendUpdate();
+        this.checkPlayerReadiness();
+      }
+      return;
+    }
+    // game playing or over, we need to preserve game.players
+    player.in_game = false;
+    let none_in_game = true;
+    this.game.players.forEach((p => {
+      if(p.in_game) none_in_game = false;
+    }))
+    if(none_in_game) {
       console.log("Deleting game with no players:", this.game.id);
       this.deleteGame();
     } else {
       this.sendUpdate();
-      this.checkPlayerReadiness();
     }
   }
   playerReady(player: Player) {
@@ -515,6 +531,9 @@ export default class GameManager {
 
     // Revealed bets need to be tailored to each player before sending.
     game.players.forEach((player) => {
+      // only send updates to players still in the game
+      if(!player.in_game) return;
+
       // Set current round bets
       if(game.current_round) {
         clean_game.current_round.bets = [];
