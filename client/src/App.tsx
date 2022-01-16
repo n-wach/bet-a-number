@@ -6,7 +6,7 @@ import GameView from "./GameView";
 
 type AppState = {
   game: Game | null,
-  available_games: GameId[];
+  available_games: GameId[],
 }
 
 export default class App extends React.Component<any, AppState> {
