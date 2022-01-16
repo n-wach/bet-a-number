@@ -130,9 +130,9 @@ class PlayerIcon extends React.Component<PlayerIconProps> {
     const player = this.props.player;
     const madeBet = !!this.props.game.current_round?.bets.has(player.id);
     const playerIcon = player.in_game ? UserIcon : DesktopComputerIcon;
-    const readyIcon = (madeBet || !player.in_game) ? CheckIcon : ChatAltIcon;
+    const readyIcon = madeBet ? CheckIcon : ChatAltIcon;
     return <CardIcon color={player.color} icon={[readyIcon, playerIcon]}
-                     filled={madeBet || !player.in_game} className={undefined}
+                     filled={madeBet} className={undefined}
                      clickable={false} onClick={undefined}
                      text={undefined}
                      styles={undefined} ref={this.cardIconRef}/>;
