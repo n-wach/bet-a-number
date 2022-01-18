@@ -189,6 +189,40 @@ class PrizeIcon extends React.Component<PrizeIconProps> {
   }
 }
 
+
+type PrizePoolAreaProps = {
+  prize_pool: Card[] | undefined;
+}
+
+class PrizePoolArea extends React.Component<PrizePoolAreaProps> {
+  getSum() {
+    if(!this.props.prize_pool) return 0;
+    return this.props.prize_pool.reduce((a, b) => (a + b));
+  }
+  getExplanation() {
+    const sum = this.getSum();
+    if(sum > 0) {
+      return <span>Highest unique bet gains {sum} { sum > 1 ? "points" : "point"}.</span>
+    } else {
+      return <span>Lowest unique bet loses {-sum} { -sum > 1 ? "points" : "point"}.</span>
+    }
+  }
+  render() {
+    return (
+        <div className="flex flex-col">
+          <span>Prize Pool:</span>
+          <IconShelf>
+            {this.props.prize_pool && this.props.prize_pool.map((card) => {
+              return <PrizeIcon value={card}/>;
+            })}
+          </IconShelf>
+          { this.getExplanation() }
+        </div>
+    );
+  }
+}
+
+
 type BetIconProps = {
   value: number;
   client: GameClient;
@@ -459,15 +493,7 @@ export default class PlayingArea extends React.Component<PlayingAreaProps, Playi
           </div>
 
           <div className="flex flex-col lg:flex-row justify-between w-full">
-            <div className="flex flex-col">
-              <span>Prize Pool (TODO points):</span>
-              <IconShelf>
-                {this.props.game.current_round?.prize_pool.map((card) => {
-                  return <PrizeIcon value={card}/>;
-                })}
-              </IconShelf>
-              <span>Highest unique bet takes.</span>
-            </div>
+            <PrizePoolArea prize_pool={this.props.game.current_round?.prize_pool}/>
             <div>
               <BetAnimationArea visible={this.state.display_bets}
                                 round={this.last_round()}
