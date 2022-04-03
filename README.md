@@ -1,14 +1,12 @@
 # Bet A Number
 
-A basic game consists of 15 rounds, and at least 2 players. Each player is given 15 numbers (from 1 to 15)
-they can use to bid in a round. Each number can only be used once. In each round, players
-are bidding for some number of prize points. The deck of prize cards contains the values from 1 to 10, 
-and -1 to -5, and a random card is picked and revealed at the start of each round.
+A basic game consists of 15 rounds, and at least 2 players. Each player is given 15 numbers (from 1 to 15) they can use to bid in a round. Each number can only be used once.
 
-Once all players have placed a bid, they are revealed. If the prize is positive, the player
-with the highest *unique* bid takes the points. If negative, the player with the lowest *unique*
-bid takes. If there are no unique bids, the bids are discarded as usual, and an additional prize 
-card is revealed. In the next round, players are betting for the combined value of both cards.
+In each round, players are bidding for some number of prize points. The deck of prize cards contains the values from 1 to 10, and -1 to -5. A random card is picked and revealed at the start of each round.
+
+In each round, players must pick a bid to place for the current prize points. If you don't pick a bid within 30 seconds, a random one will be made for you. Once all players have placed a bid, the bids are revealed.
+
+If the prize is positive, the player with the highest unique bid takes the points. If negative, the player with the lowest unique bid takes. If there are no unique bids (for instance, if everyone ties), the bids are discarded as usual, and an additional prize card is revealed. In the next round, players are betting for the combined value of both cards.
 
 After all 15 rounds, the player with the most prize points wins.
 
